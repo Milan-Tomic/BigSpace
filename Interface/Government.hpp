@@ -43,14 +43,16 @@ public:
 	void (*behaviours[NUM_GOVERNMENT_BEHAVIOURS])(Government*);
 
 	// Parent of this government. nullptr when fully independent.
+	// TODO multiple parents?
 	Government* parent;
 
 	// TODO child governments?
 
-	// Colonies directly controlled by this government.
+	// Colonies directly controlled by this Government.
 	Colony** colonies;
 
-	// List of closures associated with this government.
+	// List of closures associated with this Government.
+	// TODO: This is currently not used. What could it be used for?
 	uint_least16_t* closures;
 
 	// Table of units used by this Government. This may point to the parent Government's

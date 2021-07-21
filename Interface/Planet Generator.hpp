@@ -138,10 +138,10 @@ PlanetTile* placePlanetTiles(int size, bool init) {
 	static int currTiles = 0;
 	static int remainingTiles = 0;
 	static PlanetTile* tiles = nullptr;
-	static std::mutex placePlanetTilesMutex;
+	static std::shared_mutex placePlanetTilesMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(placePlanetTilesMutex);
+	const std::lock_guard<std::shared_mutex> lock(placePlanetTilesMutex);
 
 	// Initializes the PlanetTiles.
 	if (init) {
@@ -209,10 +209,10 @@ Returns the int depositIndex of the planet in habitablePages cast to a Habitable
 These ints will later be recast to SystemPlanetTiles in beginGenerateSystems.
 */
 HabitablePlanet* placeHabitable(int size) {
-	static std::mutex placeHabitableMutex;
+	static std::shared_mutex placeHabitableMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(placeHabitableMutex);
+	const std::lock_guard<std::shared_mutex> lock(placeHabitableMutex);
 
 	// Attempts to place the planet within one of the current pages.
 	HabitablePlanet* planet = nullptr;
@@ -261,10 +261,10 @@ Requests a HabitablePage. Returns the index of the next available page in habita
 TODO if infrastructure permits it, use a static global to increment through habitable pages.
 */
 int requestHabitablePage() {
-	static std::mutex requestHabitablePageMutex;
+	static std::shared_mutex requestHabitablePageMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(requestHabitablePageMutex);
+	const std::lock_guard<std::shared_mutex> lock(requestHabitablePageMutex);
 
 	// Parses through each galaxy and returns the next available one.
 	for (int i = 0; i < numHabitablePages; ++i) {
@@ -283,13 +283,13 @@ int requestHabitablePage() {
 /*
 Returns a HabitablePage.
 */
-void returnHabitablePage(int index) {
+void releaseHabitablePage(int index) {
 	habitablePages[index]->active = false;
 
 }
 
 // Returns all HabitablePage.
-void returnAllHabitablePages() {
+void releaseAllHabitablePages() {
 	for (int i = 0; i < numHabitablePages; ++i) habitablePages[i]->active = false;
 
 }
@@ -343,10 +343,10 @@ void initBarrenPlanets(int numBarren) {
 Places a barren planet into barrenPlanets.
 */
 BarrenPlanet* placeBarren() {
-	static std::mutex placeBarrenMutex;
+	static std::shared_mutex placeBarrenMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(placeBarrenMutex);
+	const std::lock_guard<std::shared_mutex> lock(placeBarrenMutex);
 
 	// Attempts to place the planet within one of the current pages.
 	BarrenPlanet* planet = nullptr;
@@ -1690,10 +1690,17 @@ void dummyToTileID(int size, HabitablePlanet* planet, int** dummyPlanet, int** b
 		}
 	}
 
-	// Adds all land on the planet to the null owner.
+	// Adds all land and water on the planet to the null owner.
 	for (int i = 0; i < size * size; ++i) {
+
+		// Adds Land.
 		if (planet->planet[i].tileData <= LAND_TILE && planet->planet[i].buildingID == NoBuilding) {
 			++pOwnerBuildingQ(0, LAND_OWNED, planet, 0);
+
+		}
+		// Adds Water. TODO may need to add NoBuilding check.
+		else if (planet->planet[i].tileData > LAND_TILE /*&& planet->planet[i].buildingID == NoBuilding*/) {
+			++pOwnerBuildingQ(0, LAND_OWNED, planet, 2);
 
 		}
 	}

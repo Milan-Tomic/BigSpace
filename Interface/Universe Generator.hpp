@@ -37,7 +37,7 @@ void clearUniverseCanvas(int** canvas, int size);
 // Copies a galaxies tileID's to a canvas.
 void copyUniverseCanvas(int** sourceCanvas, int** copyCanvas, int size);
 
-// Copies a dummy galaxy to a galaxy.
+// Copies a dummy universe to the universe.
 void universeToSpace(int** dummyGalaxy, int width, int height);
 
 // Creates arms for a galaxy.
@@ -86,7 +86,7 @@ void generateUniverse(int uniWidth, int uniHeight, int numGalaxies, int minDista
 			universeDummy[i][j] = -1;
 
 	// Initializes the array of Galaxies.
-	galaxies = new Galaxy[numGalaxies];
+	galaxies = (Galaxy*)calloc(numGalaxies, sizeof(Galaxy));
 
 	// Generates all galaxies for the universe.
 	for (int i = 0; i < numGalaxies; ++i) {
@@ -113,7 +113,7 @@ void generateUniverse(int uniWidth, int uniHeight, int numGalaxies, int minDista
 		case RANDOM:
 
 			// Assigns the random galaxy a type and then creates it.
-			galInstr[i].type = rand() % 2 + 1;
+			galInstr[i].type = randB(1) + 1;
 			--i;
 			break;
 
@@ -255,8 +255,8 @@ void placeGalaxy(int galSize, int uniWidth, int uniHeight, int minDistance, Gala
 			foundSpot = true; // Assume a spot will be found until proven otherwise.
 
 			// Tries to find an empty usable tile.
-			xOrigin = rand() % (uniWidth - galSize - 1);
-			yOrigin = rand() % (uniHeight - galSize - 1);
+			xOrigin = randM(uniWidth - galSize - 1);
+			yOrigin = randM(uniHeight - galSize - 1);
 
 			// If the tile is empty, checks to see that the nearby area is empty.
 			if (universe[xOrigin][yOrigin] == -1) {
@@ -363,20 +363,28 @@ The minimum coreSizeFraction is 0.
 void initRingGalaxy(GalaxyInstruction* instr, int uniWidth, int uniHeight) {
 
 	// Initializes width such that it will fit within the universe.
-	if (instr->width <= 50) instr->width = rand() % (int)(0.2 * uniWidth) + 50;
+	if (instr->width <= 50) {
+		instr->width = randM((int)(0.2 * uniWidth)) + 50;
+		if (instr->width >= uniWidth) instr->width = uniWidth;
+
+	}
 	// Initializes height such that it will fit within the universe.
-	if (instr->height <= 50) instr->height = rand() % (int)(0.2 * uniHeight) + 50;
+	if (instr->height <= 50) {
+		instr->height = randM((int)(0.2 * uniHeight)) + 50;
+		if (instr->height >= uniHeight) instr->height = uniHeight;
+
+	}
 	// Initializes coreSizeFraction to a number between 0 and 100 if uninitialized.
 	if (instr->coreSizeFraction <= 0) {
 
 		// 20% chance of no galactic core.
-		if (!(rand() % 5)) instr->coreSizeFraction = 0;
+		if (!(randB(3) % 5)) instr->coreSizeFraction = 0;
 		// 80% chance of decently large galactic core.
-		else instr->coreSizeFraction = (rand() % 40) + 50;
+		else instr->coreSizeFraction = (randB(6) % 40) + 50;
 
 	}
 	// Initializes starChance to be between 5 and 20.
-	if (instr->starChance <= 0) instr->starChance = rand() % 16 + 5;
+	if (instr->starChance <= 0) instr->starChance = randB(4) + 5;
 	// Initializes numHabitable to be two.
 	if (instr->numHabitable <= 0) instr->numHabitable = 2;
 	// Initializes numBarren to six.
@@ -444,25 +452,27 @@ The minimum numArms is 2.
 the minimum armSizeFraction and radFraction are 0.
 */
 void initSpiralGalaxy(GalaxyInstruction* instr, int uniWidth, int uniHeight) {
+	int maxSize;
 
 	// Initializes width such that it will fit within the universe if uninitialized.
 	if (instr->width <= 50) {
-		int maxSize = uniWidth < uniHeight ? 0.3 * uniWidth : 0.3 * uniHeight;
-		instr->width = rand() % maxSize + 100;
+		maxSize = uniWidth < uniHeight ? uniWidth : uniHeight;
+		instr->width = randM((int)(0.3 * maxSize)) + 50;
+		if (instr->width > maxSize) instr->width = maxSize;
 
 	}
 	// Initializes numArms to an even number between 2 and 8.
 	if (instr->numArms < 2) {
-		instr->numArms = rand() % 7 + 2;
-		if (instr->numArms % 2) instr->numArms += 1;
+		instr->numArms = randB(3) % 7 + 2;
+		instr->numArms &= ~1;
 
 	}
 	// Initializes armSizeFraction to a number between 0 and 100.
-	if (instr->armSizeFraction <= 0) instr->armSizeFraction = rand() % 101;
+	if (instr->armSizeFraction <= 0) instr->armSizeFraction = randM(101);
 	// Initializes radFraction to a number between 0 and 100.
-	if (instr->radFraction <= 0) instr->radFraction = rand() % 101;
+	if (instr->radFraction <= 0) instr->radFraction = randM(101);
 	// Initializes starChance to be between 5 and 20.
-	if (instr->starChance <= 0) instr->starChance = rand() % 16 + 5;
+	if (instr->starChance <= 0) instr->starChance = randB(4) + 5;
 	// Initializes numHabitable to be two.
 	if (instr->numHabitable <= 0) instr->numHabitable = 2;
 	// Initializes numBarren to six.
@@ -602,6 +612,9 @@ void universeToSpace(int** dummySpace, int width, int height) {
 	// Initializes the universe.
 	universe = (GalaxyTile*)calloc(width * height, sizeof(GalaxyTile));
 
+	// Initializes the universeMutexes.
+	universeMutexes = new std::shared_mutex[width > height ? width : height];
+
 	// Copies each dummySpace tile to the universe.
 	for (int i = 0; i < width; ++i) {
 		for (int j = 0; j < height; ++j) {
@@ -702,7 +715,7 @@ void rotateGalaxy(int width, int center, int** toRotate, int** canvas) {
 	clearUniverseCanvas(toRotate, width);
 
 	// Finds a random amount to rotate by.
-	double rad = (rand() % 400) * 0.01;
+	double rad = randM(400) * 0.01;
 
 	// Rotates the galaxy.
 	for (int i = 0; i < width; ++i) {
@@ -931,16 +944,23 @@ void placeSystems(int** dummyUniverse, Galaxy* galaxies, GalaxyInstruction* galI
 
 	// Parses through each Galaxy and places SystemSpaceTiles within it. Replaces ThickSpaceTiles
 	// with SystemTiles based on the relevant chance.
-	for (int i = 0; i < numGals; ++i)
-		for (int w = galaxies[i].area.x; w < galaxies[i].area.x + galaxies[i].area.w; ++w)
-			for (int h = galaxies[i].area.y; h < galaxies[i].area.y + galaxies[i].area.h; ++h)
-				if (dummyUniverse[w][h] == THICK_SPACE_TILE && rand() % 100 < galInstrs[i].starChance)
+	for (int i = 0; i < numGals; ++i) {
+		for (int w = galaxies[i].area.x; w < galaxies[i].area.x + galaxies[i].area.w; ++w) {
+			for (int h = galaxies[i].area.y; h < galaxies[i].area.y + galaxies[i].area.h; ++h) {
+				if (dummyUniverse[w][h] == THICK_SPACE_TILE && randB(7) % 100 < galInstrs[i].starChance) {
 					dummyUniverse[w][h] = SYSTEM_TILE;
+					++galaxies[i].numSystems;
+
+				}
+			}
+		}
+	}
 
 }
 
 /*
 Assigns the number of Habitables and barrens to each system.
+Will also assign the location of the System.
 */
 void assignSystemPlanetCounts(Galaxy* galaxies, GalaxyInstruction* galInstrs, int& numHab, int& numBarr) {
 	numHab = 0;
@@ -955,6 +975,7 @@ void assignSystemPlanetCounts(Galaxy* galaxies, GalaxyInstruction* galInstrs, in
 			for (int h = galaxies[i].area.y; h < galaxies[i].area.y + galaxies[i].area.h; ++h) {
 				if (uIndex(w, h).tileID == SYSTEM_TILE) {
 					currSystem = uSystem(w, h);
+					currSystem->loc = { (uint_least16_t)w, (uint_least16_t)h };
 					currSystem->initHabitable(randB(8) % galInstrs[i].numHabitable + MIN_HABITABLE);
 					currSystem->initBarren(randB(8) % galInstrs[i].numBarren + MIN_BARREN);
 					numHab += currSystem->numHabitable;
@@ -991,7 +1012,7 @@ void placeAllPlanets(Galaxy* galaxies, GalaxyInstruction* galInstrs) {
 						// Should have range of MIN_PLANET_SIZE to galInstrs[i].planetSize and be divisible by 2.
 						size = ((randB(8) % (galInstrs[i].planetSize - MIN_PLANET_WIDTH + 1)) & ~1) + MIN_PLANET_WIDTH;
 						currSystem->planets[plan] = placeHabitable(size);
-						currSystem->planets[plan]->location = { w, h };
+						currSystem->planets[plan]->loc = { (uint_least16_t)w, (uint_least16_t)h };
 						numTiles += currSystem->planets[plan]->size * currSystem->planets[plan]->size;
 
 					}
@@ -1025,10 +1046,10 @@ Finds a system for generation by the calling thread. Uses universeX and universe
 Returns a SystemSpaceTile upon success, otherwise nullptr.
 */
 System* requestSystemToGenerate() {
-	static std::mutex requestSystemToGenerateMutex;
+	static std::shared_mutex requestSystemToGenerateMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(requestSystemToGenerateMutex);
+	const std::lock_guard<std::shared_mutex> lock(requestSystemToGenerateMutex);
 	
 	// Searches through each tile in the galaxy until the next system is found.
 	for (; universeX < universeWidth; ++universeX) {

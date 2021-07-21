@@ -173,7 +173,10 @@
     <ClInclude Include="Commerce.hpp" />
     <ClInclude Include="Comparison Matrix.hpp" />
     <ClInclude Include="Defines.hpp" />
+    <ClInclude Include="Diplomacy.hpp" />
     <ClInclude Include="Empire Generator.hpp" />
+    <ClInclude Include="Event Handling.hpp" />
+    <ClInclude Include="Events.hpp" />
     <ClInclude Include="Galaxy.hpp" />
     <ClInclude Include="Gameplay Loop.hpp" />
     <ClInclude Include="Government Action.hpp" />

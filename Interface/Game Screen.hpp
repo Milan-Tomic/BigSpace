@@ -15,8 +15,9 @@ bool ctrl;
 // Pointer to the View that the user is interacting with.
 void (*view)(SDL_Event) = universeView;
 
-// Tells the compiler about gameSpeed.
+// Tells the compiler about gameSpeed and highSpeedMode.
 extern int gameSpeed;
+extern bool highSpeedMode;
 
 /*
 Initializes the Game Screen.
@@ -208,6 +209,12 @@ ButtonCode interfaceLoop() {
 				gameSpeed = gameSpeed ? 0 : 1;
 
 			}
+			// Places the game in high speed mode when 0 is pressed.
+			// TODO DEBUG REMOVE
+			else if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_0) {
+				highSpeedMode = !highSpeedMode;
+
+			}
 
 			// If the user did not quit or resize the window, sends their input to the appropriate View.
 			(*view)(event);
@@ -223,7 +230,6 @@ ButtonCode interfaceLoop() {
 
 			// Changes the active view between System View and Planet View.
 			if (view == systemView && activeSystem == nullptr) view = habitableView;
-
 
 		}
 	}

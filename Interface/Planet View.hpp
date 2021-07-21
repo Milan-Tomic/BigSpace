@@ -207,7 +207,6 @@ void HabitableInfoPanel::rerender() {
 	int yBuffer;
 	SDL_Rect rect;
 	SDL_Rect tempRect;
-	SDL_Surface* surface;
 
 	// Calculates some values for rendering.
 	xBuffer = systemPanel.w / 25;
@@ -520,9 +519,9 @@ void initPlanetView() {
 ///////////
 // DEBUG //
 ///////////
-changes the building of a certain tile.
+Prints some information about a certain tile.
 */
-void debugBuildings(int xPos, int yPos) {
+void debugPlanetTile(int xPos, int yPos) {
 	findPlanetCoords(&xPos, &yPos);
 	wrapAroundPlanet(activeHabitable->size, &xPos, &yPos);
 
@@ -535,11 +534,14 @@ void debugBuildings(int xPos, int yPos) {
 	printf("building: %d\n", activeHabitable->planet[index(xPos, yPos, activeHabitable->size)].buildingID);
 	printf("numData: %d\n", activeHabitable->planet[index(xPos, yPos, activeHabitable->size)].numData);
 	if (activeHabitable->battle) {
-		printf("battle owner : %d\n", pBattleIndex(xPos, yPos, activeHabitable).owner);
-		printf("battle unit  : %d\n", pBattleIndex(xPos, yPos, activeHabitable).units[0].unit);
-		printf("battle num   : %d\n", pBattleIndex(xPos, yPos, activeHabitable).units[0].quantity);
-		printf("battle move  : %d\n", pBattleIndex(xPos, yPos, activeHabitable).units[0].moving);
+		for (int i = 0; i < NUM_TILE_UNITS; ++i) {
+			printf("[%d]battle owner : %d\n", i, pBattleIndex(xPos, yPos, activeHabitable).owner);
+			printf("[%d]battle unit  : %d\n", i, pBattleIndex(xPos, yPos, activeHabitable).units[i].unit);
+			printf("[%d]battle num   : %d\n", i, pBattleIndex(xPos, yPos, activeHabitable).units[i].quantity);
+			printf("[%d]battle move  : %d\n", i, pBattleIndex(xPos, yPos, activeHabitable).units[i].moving);
+		}
 	}
+	printf("\n");
 
 	////////////////////////////
 	// Places a new building. //
@@ -604,13 +606,13 @@ void habitableView(SDL_Event event) {
 		changeHabitablePanelView(xPos, yPos);
 
 		// Manages clicking within the selection area.
-		if (withinBounds(xPos, yPos, systemSelectionPanel));
+		// TODO don't know what this is intended for.
+		//if (withinBounds(xPos, yPos, systemSelectionPanel));
 
 		///////////
 		// DEBUG //
 		///////////
-		debugBuildings(xPos, yPos);
-
+		if (event.button.button == SDL_BUTTON_RIGHT) debugPlanetTile(xPos, yPos);
 
 	}
 
@@ -1293,8 +1295,8 @@ void renderHabitableArmies() {
 	// TODO DEBUG REMOVE
 	// TODO remove frontSprites and rendering
 	if (!frontSprites) {
-		frontSprites = new SDL_Texture*[256];
-			for (int i = 0; i < 256; ++i) {
+		frontSprites = new SDL_Texture*[512];
+			for (int i = 0; i < 512; ++i) {
 				SDL_Surface* surface = TTF_RenderText_Blended(defaultFont, std::to_string(i).c_str(), { 0, 0, 0, 0xFF });
 				frontSprites[i] = SDL_CreateTextureFromSurface(renderer, surface);
 				SDL_FreeSurface(surface);
@@ -1332,7 +1334,7 @@ void renderHabitableArmies() {
 				
 			}
 			// TODO DEBUG REMOVE
-			else if (battle->battlefield[index(x, y, activeHabitable->size)].units[2].quantity) {
+			else if (battle->battlefield[index(x, y, activeHabitable->size)].units[NUM_TILE_UNITS - 1].quantity) {
 				numUnits = (battle->battlefield[index(x, y, activeHabitable->size)].units[0].quantity + 1) / 16;
 				armySprite = getArmySprite(1);
 				renderHabitableArmy(i, j, x, y, numUnits, tile, armySprite, battle);
@@ -1343,10 +1345,12 @@ void renderHabitableArmies() {
 		// Exit point for the loop.
 		exit:;
 
+			// Assigns tile.
+			tile = { i + systemViewport.x, j + systemViewport.y, planetTileSize, planetTileSize };
+
 			// TODO DEBUG REMOVE
 			// Shows the front of the tile.
-			tile = { i + systemViewport.x, j + systemViewport.y, planetTileSize, planetTileSize };
-			//SDL_RenderCopy(renderer, frontSprites[pgbIndex(x, y, activeHabitable).front], NULL, &tile);
+			if (pBattleIndex(x, y, activeHabitable).front) SDL_RenderCopy(renderer, frontSprites[pBattleIndex(x, y, activeHabitable).front], NULL, &tile);
 
 		}
 		armyIndex += planetTileSize;

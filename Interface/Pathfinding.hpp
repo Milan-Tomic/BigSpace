@@ -1,19 +1,5 @@
 #pragma once
 
-// Structure containing x and y coordinates.
-struct Coordinate {
-	int x;
-	int y;
-
-};
-
-// Small structure containing x and y coordinates.
-struct Coord {
-	uint_least8_t x;
-	uint_least8_t y;
-
-};
-
 // Union containing 8 directions within 8 bits.
 struct Dir {
 	uint_least8_t nw : 1;
@@ -34,20 +20,86 @@ union Direction {
 
 };
 
-// Equivalence operator for a Coordinate. Compares x and y.
-bool operator==(const Coordinate& coord, const Coordinate& other) {
+// Cardinal directions.
+Dir northwest = { 1, 0, 0, 0, 0, 0, 0, 0 };
+Dir north = { 0, 1, 0, 0, 0, 0, 0, 0 };
+Dir northeast = { 0, 0, 1, 0, 0, 0, 0, 0 };
+Dir east = { 0, 0, 0, 1, 0, 0, 0, 0 };
+Dir southeast = { 0, 0, 0, 0, 1, 0, 0, 0 };
+Dir south = { 0, 0, 0, 0, 0, 1, 0, 0 };
+Dir southwest = { 0, 0, 0, 0, 0, 0, 1, 0 };
+Dir west = { 0, 0, 0, 0, 0, 0, 0, 1 };
+
+// Small structure containing x and y coordinates.
+// Used for pathfinding on planets.
+struct Coord {
+	uint_least8_t x;
+	uint_least8_t y;
+
+};
+
+// Small structure containing signed x and y coordinates.
+// Used for pathfinding via offsets.
+struct CoordI {
+	int_least8_t x;
+	int_least8_t y;
+
+};
+
+// Medium structure containing x and y coordinates.
+// Used for pathfinding within the universe.
+struct CoordU {
+	uint_least16_t x;
+	uint_least16_t y;
+
+};
+
+// Structure containing x and y coordinates.
+struct Coordinate {
+	int x;
+	int y;
+
+};
+
+/*
+Structure containing a path coordinate.
+
+18 bytes, 2 bytes padding.
+sizeof(PathCoordinate) is 20 bytes.
+*/
+struct PathCoordinate {
+
+	// Location of this path node.
+	Coordinate coord; // 8 bytes.
+
+	// Pathfinding algorithm values.
+	float gValue; // 4 bytes.
+	float hValue; // 4 bytes.
+
+	// Previous direction.
+	Direction dir; // 1 byte.
+
+	// Used to make special notes while pathfinding.
+	bool info; // 1 byte.
+
+	// 2 bytes padding.
+
+};
+
+// Equivalence operator for a CoordU. Compares x and y.
+bool operator==(const CoordU& coord, const CoordU& other) {
 	return coord.x == other.x && coord.y == other.y;
 
 }
 
-// Non-equivalence operator for a Coordinate. Compares x and y.
-bool operator!=(const Coordinate& coord, const Coordinate& other) {
+// Non-equivalence operator for a CoordU. Compares x and y.
+bool operator!=(const CoordU& coord, const CoordU& other) {
 	return coord.x != other.x || coord.y != other.y;
 
 }
 
-// Not operator for a Coordinate. True if x and y are 0.
-bool operator!(const Coordinate& coord) {
+// Not operator for a CoordU. True if x and y are 0.
+bool operator!(const CoordU& coord) {
 	return !coord.x && !coord.y;
 
 }
@@ -70,17 +122,23 @@ bool operator!(const Coord& coord) {
 
 }
 
-// Structure containing a path coordinate.
-struct PathCoordinate {
-	Coordinate coord;
-	float gValue;
-	float hValue;
-	Direction dir; // Prev direction.
-	bool info; // used in planetPathfind to note pole wrap.
-	// Spare byte 1.
-	// Spare byte 2.
+// Equivalence operator for a Coordinate. Compares x and y.
+bool operator==(const Coordinate& coord, const Coordinate& other) {
+	return coord.x == other.x && coord.y == other.y;
 
-};
+}
+
+// Non-equivalence operator for a Coordinate. Compares x and y.
+bool operator!=(const Coordinate& coord, const Coordinate& other) {
+	return coord.x != other.x || coord.y != other.y;
+
+}
+
+// Not operator for a Coordinate. True if x and y are 0.
+bool operator!(const Coordinate& coord) {
+	return !coord.x && !coord.y;
+
+}
 
 // Equivalence operator for a PathCoordinate. Compares the coord, ignores gValue.
 bool operator==(const PathCoordinate& coord, const PathCoordinate& other) {
@@ -111,6 +169,119 @@ bool operator>=(const PathCoordinate& coord, const PathCoordinate& other) {
 bool operator<=(const PathCoordinate& coord, const PathCoordinate& other) {
 	return (coord.gValue + coord.hValue) < (other.gValue + other.hValue) ||
 		coord.gValue + coord.hValue == other.gValue + other.hValue;
+
+}
+
+/*
+Fills and returns a Direction according to the inputed lambda expression.
+*/
+inline Direction fillDirection(int xBeg, int yBeg, std::function<bool(int x, int y)> fillFunc) {
+	Direction dir;
+	dir.d.nw = fillFunc(xBeg - 1, yBeg -1);
+	dir.d.n  = fillFunc(xBeg,     yBeg - 1);
+	dir.d.ne = fillFunc(xBeg + 1, yBeg - 1);
+	dir.d.e  = fillFunc(xBeg + 1, yBeg);
+	dir.d.se = fillFunc(xBeg + 1, yBeg + 1);
+	dir.d.s  = fillFunc(xBeg,     yBeg + 1);
+	dir.d.sw = fillFunc(xBeg - 1, yBeg + 1);
+	dir.d.w  = fillFunc(xBeg - 1, yBeg);
+	return dir;
+	
+}
+
+/*
+Performs an action in every direction according to the inputed lambda expression.
+*/
+inline void actionDirection(int xBeg, int yBeg, std::function<void(int x, int y)> actionFunc) {
+	actionFunc(xBeg, yBeg - 1);
+	actionFunc(xBeg + 1, yBeg);
+	actionFunc(xBeg, yBeg + 1);
+	actionFunc(xBeg - 1, yBeg);
+	actionFunc(xBeg - 1, yBeg - 1);
+	actionFunc(xBeg + 1, yBeg - 1);
+	actionFunc(xBeg + 1, yBeg + 1);
+	actionFunc(xBeg - 1, yBeg + 1);
+
+}
+
+/*
+Performs an action in every direction according to the inputed lambda expression.
+Will return true if any lambda returns true, otherwise will return false.
+*/
+inline bool actionDirectionCond(int xBeg, int yBeg, std::function<bool(int x, int y)> actionFunc) {
+	if (actionFunc(xBeg, yBeg - 1)) return true;
+	if (actionFunc(xBeg + 1, yBeg)) return true;
+	if (actionFunc(xBeg, yBeg + 1)) return true;
+	if (actionFunc(xBeg - 1, yBeg)) return true;
+	if (actionFunc(xBeg - 1, yBeg - 1)) return true;
+	if (actionFunc(xBeg + 1, yBeg - 1)) return true;
+	if (actionFunc(xBeg + 1, yBeg + 1)) return true;
+	if (actionFunc(xBeg - 1, yBeg + 1)) return true;
+	return false;
+
+}
+
+/*
+Performs an action in every direction according to the inputed lambda expression.
+This is distinct from actionDirection in that Dir is an input to the lambda.
+*/
+inline void actionDirection(int xBeg, int yBeg, std::function<void(int x, int y, Dir d)> actionFunc) {
+	actionFunc(xBeg, yBeg - 1, north);
+	actionFunc(xBeg + 1, yBeg, east);
+	actionFunc(xBeg, yBeg + 1, south);
+	actionFunc(xBeg - 1, yBeg, west);
+	actionFunc(xBeg - 1, yBeg - 1, northwest);
+	actionFunc(xBeg + 1, yBeg - 1, northeast);
+	actionFunc(xBeg + 1, yBeg + 1, southeast);
+	actionFunc(xBeg - 1, yBeg + 1, southwest);
+
+}
+
+/*
+Performs an action in every direction according to the inputed lambda expression.
+Will return true if any lambda returns true, otherwise will return false.
+This is distinct from actionDirection in that Dir is an input to the lambda.
+*/
+inline bool actionDirectionCond(int xBeg, int yBeg, std::function<bool(int x, int y, Dir d)> actionFunc) {
+	if (actionFunc(xBeg, yBeg - 1, north)) return true;
+	if (actionFunc(xBeg + 1, yBeg, east)) return true;
+	if (actionFunc(xBeg, yBeg + 1, south)) return true;
+	if (actionFunc(xBeg - 1, yBeg, west)) return true;
+	if (actionFunc(xBeg - 1, yBeg - 1, northwest)) return true;
+	if (actionFunc(xBeg + 1, yBeg - 1, northeast)) return true;
+	if (actionFunc(xBeg + 1, yBeg + 1, southeast)) return true;
+	if (actionFunc(xBeg - 1, yBeg + 1, southwest)) return true;
+	return false;
+
+}
+
+/*
+Calculates the number of blocks (groups of adjacent 1 tiles) contained in a
+direction. This is used to check the coherency of borders (if numBlocks > 1, there is a gap).
+
+NOTE: A direction containing only one value is said to have 0 blocks.
+*/
+inline int directionNumBlocks(Direction d) {
+	uint_least8_t blocks = 0;
+	uint_least8_t prev1 = d.i >> 7;
+	uint_least8_t prev2 = (d.i >> 6) & 1;
+	uint_least8_t val;
+
+	// Counts the number of blocks in the inputed Direction.
+	for (int i = 0; i < 8; ++i) {
+		val = (d.i >> i) & 1;
+
+		// Even values (corners) must be directly adjacent.
+		if (!(i % 2) && val && !prev1) ++blocks;
+		// Odd values (cardinals) can be diagonally adjacent to the previous cardinal.
+		else if (i % 2 && val && !prev1 && !prev2) ++blocks;
+		prev2 = prev1;
+		prev1 = val;
+
+	}
+
+	// Returns the number of blocks in the inputed direction.
+	return blocks;
 
 }
 
@@ -233,10 +404,10 @@ void initCoordLists() {
 Allows threads to request access to a coordList. Should always return a value.
 */
 LinkedList<PathCoordinate>* requestCoordList() {
-	static std::mutex coordListMutex;
+	static std::shared_mutex coordListMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(coordListMutex);
+	const std::lock_guard<std::shared_mutex> lock(coordListMutex);
 
 	// Finds the first available coordList.
 	// It is assumed that at least one will be available at any time.

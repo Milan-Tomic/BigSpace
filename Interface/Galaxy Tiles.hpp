@@ -19,6 +19,7 @@ enum PlanetTileID {
 	Barren,
 	Seared,
 	Mountain,
+	// <= is land, > is water.
 	LAND_TILE = Mountain,
 	Lake,
 	Coast,
@@ -436,7 +437,7 @@ public:
 	Battle* battle;
 
 	// Contains the location of this planet in the universe.
-	Coordinate location;
+	CoordU loc;
 
 	// Contains a mutex that prevents shared access to the planet.
 	// This mutex is used by battles too.
@@ -483,7 +484,7 @@ public:
 	// When the tile is found, performs the inputed action.
 	// It also requires functions for calculating the gValue between two tiles
 	// and the hValue of a given tile.
-	void planetPathfind(int x1, int y1, int maxG,
+	bool planetPathfind(int x1, int y1, int maxG,
 		std::function<bool(HabitablePlanet*, LinkedListNode<PathCoordinate>*)> endCondition,
 		std::function<void(HabitablePlanet*, LinkedListNode<PathCoordinate>*)> action,
 		std::function<int(HabitablePlanet*, int, int, int, int)> calcG,
@@ -607,13 +608,15 @@ bool HabitablePlanet::checkAdjacency(int x, int y, std::function<bool(int, int, 
 
 /*
 TODO header comment.
-TODO placed action in break condition (working?)
+
+Return false if and only if pathfinding fails, otherwise returns true.
 */
-void HabitablePlanet::planetPathfind(int x1, int y1, int maxG,
+bool HabitablePlanet::planetPathfind(int x1, int y1, int maxG,
 	std::function<bool (HabitablePlanet*, LinkedListNode<PathCoordinate>*)> endCondition,
 	std::function<void (HabitablePlanet*, LinkedListNode<PathCoordinate>*)> action,
 	std::function<int(HabitablePlanet*, int, int, int, int)> calcG,
 	std::function<double(HabitablePlanet*, LinkedListNode<PathCoordinate>*)> calcH) {
+	bool ret = false;
 	int gValue;
 	int xPos, yPos;
 	LinkedListNode<PathCoordinate>* currPos = nullptr;
@@ -621,16 +624,7 @@ void HabitablePlanet::planetPathfind(int x1, int y1, int maxG,
 
 	// Uses a map to mark down explored tiles.
 	uint_least8_t* exploredMap = requestDummy();
-
-	// Places all sea tiles into explored to stop them from being used for pathfinding.
-	// TODO make exception for seaports.
-	//for (int i = 0; i < size; ++i) {
-	//	for (int j = 0; j < size; ++j) {
-	//		if (planet[index(i, j, size)].tileData > LAND_TILE) exploredMap[index(i, j, size)] = 2;
-	//		else exploredMap[index(i, j, size)] = 0;
-
-	//	}
-	//}
+	memset(exploredMap, 0, sizeof(uint_least8_t) * size * size);
 
 	// Requests a coordList for this function.
 	LinkedList<PathCoordinate>* coordList = requestCoordList();
@@ -649,25 +643,65 @@ void HabitablePlanet::planetPathfind(int x1, int y1, int maxG,
 	coord->value->hValue = calcH(this, coord);
 	coord->previous = nullptr;
 	frontier.addc(coord);
-	exploredMap[index(coord->value->coord.x, coord->value->coord.y, size)] = 1;
+	exploredMap[index(coord->value->coord.x, coord->value->coord.y, size)] = true;
 
 	// Pathfinds until the desired coordinate is found.
 	while (!frontier.isEmpty()) {
 
-		// Starts exploring the first node.
+		// Starts exploring the node.
 		currPos = frontier.popc();
 		explored.addc(currPos);
 
 		// If currPos meets the inputed criteria, stops looping.
 		if (endCondition(this, currPos)) {
 			action(this, currPos);
+			ret = true;
 			break;
 
 		}
 
 		// Adds all adjacent tiles to the frontier.
-		// This is done verbosely because it means that direction is implicit.
-		// Northwest.
+		// This is slower than the old code, so it is not used.
+		//actionDirection(currPos->value->coord.x, currPos->value->coord.y,
+		//	[this, &exploredMap, &coordList, &frontier, currPos, calcG, calcH, maxG](int x, int y, Dir d)->void {
+		//		int gValue;
+		//		LinkedListNode<PathCoordinate>* coord;
+
+		//		// Places the coord if it has not been explored.
+		//		wrapAroundPlanet(size, &x, &y);
+		//		if (!exploredMap[index(x, y, size)]) {
+
+		//			// Marks this tile explored.
+		//			exploredMap[index(x, y, size)] = true;
+
+		//			// Selects the gValue.
+		//			gValue = currPos->value->gValue + calcG(this, currPos->value->coord.x, currPos->value->coord.y, x, y);
+
+		//			// Adds the coord to the frontier if it has an appropriate gValue.
+		//			if (gValue < maxG) {
+
+		//				// Places the coord.
+		//				coord = coordList->popc();
+		//				coord->value->coord.x = x;
+		//				coord->value->coord.y = y;
+		//				coord->value->gValue = gValue;
+		//				coord->value->hValue = calcH(this, coord);
+		//				coord->previous = currPos;
+		//				coord->value->dir.d = d;
+		//				frontier.addcAsc(coord);
+
+		//			}
+		//		}
+		//	}
+		//);
+		
+		// Old pathfinding code.
+		// This is consistently slightly faster than the new code, so it is kept.
+		{
+
+		//Adds all adjacent tiles to the frontier.
+		//This is done verbosely because it allows for expression of direction.
+		//Northwest.
 		xPos = currPos->value->coord.x - 1;
 		yPos = currPos->value->coord.y - 1;
 		wrapAroundPlanet(size, &xPos, &yPos);
@@ -690,7 +724,7 @@ void HabitablePlanet::planetPathfind(int x1, int y1, int maxG,
 				coord->value->gValue = gValue;
 				coord->value->hValue = calcH(this, coord);
 				coord->previous = currPos;
-				coord->value->dir.i = 1;
+				coord->value->dir.d = northwest;
 				frontier.addcAsc(coord);
 
 			}
@@ -718,7 +752,7 @@ void HabitablePlanet::planetPathfind(int x1, int y1, int maxG,
 				coord->value->gValue = gValue;
 				coord->value->hValue = calcH(this, coord);
 				coord->previous = currPos;
-				coord->value->dir.i = 2;
+				coord->value->dir.d = north;
 				frontier.addcAsc(coord);
 
 			}
@@ -746,7 +780,7 @@ void HabitablePlanet::planetPathfind(int x1, int y1, int maxG,
 				coord->value->gValue = gValue;
 				coord->value->hValue = calcH(this, coord);
 				coord->previous = currPos;
-				coord->value->dir.i = 4;
+				coord->value->dir.d = northeast;
 				frontier.addcAsc(coord);
 
 			}
@@ -774,7 +808,7 @@ void HabitablePlanet::planetPathfind(int x1, int y1, int maxG,
 				coord->value->gValue = gValue;
 				coord->value->hValue = calcH(this, coord);
 				coord->previous = currPos;
-				coord->value->dir.i = 8;
+				coord->value->dir.d = east;
 				frontier.addcAsc(coord);
 
 			}
@@ -802,7 +836,7 @@ void HabitablePlanet::planetPathfind(int x1, int y1, int maxG,
 				coord->value->gValue = gValue;
 				coord->value->hValue = calcH(this, coord);
 				coord->previous = currPos;
-				coord->value->dir.i = 128;
+				coord->value->dir.d = west;
 				frontier.addcAsc(coord);
 
 			}
@@ -830,7 +864,7 @@ void HabitablePlanet::planetPathfind(int x1, int y1, int maxG,
 				coord->value->gValue = gValue;
 				coord->value->hValue = calcH(this, coord);
 				coord->previous = currPos;
-				coord->value->dir.i = 16;
+				coord->value->dir.d = southeast;
 				frontier.addcAsc(coord);
 
 			}
@@ -858,7 +892,7 @@ void HabitablePlanet::planetPathfind(int x1, int y1, int maxG,
 				coord->value->gValue = gValue;
 				coord->value->hValue = calcH(this, coord);
 				coord->previous = currPos;
-				coord->value->dir.i = 32;
+				coord->value->dir.d = south;
 				frontier.addcAsc(coord);
 
 			}
@@ -886,11 +920,12 @@ void HabitablePlanet::planetPathfind(int x1, int y1, int maxG,
 				coord->value->gValue = gValue;
 				coord->value->hValue = calcH(this, coord);
 				coord->previous = currPos;
-				coord->value->dir.i = 64;
+				coord->value->dir.d = southwest;
 				frontier.addcAsc(coord);
 
 			}
 		}
+	}
 	}
 
 	// Returns values from frontier and explored to coordList.
@@ -902,6 +937,9 @@ void HabitablePlanet::planetPathfind(int x1, int y1, int maxG,
 
 	// Releases the coordList.
 	releaseCoordList(coordList);
+
+	// Returns true if the action lambda was performed.
+	return ret;
 
 }
 
@@ -1019,8 +1057,8 @@ enum GalaxyTileID {
 
 };
 
-// Informs the compiler about Fleets and Government.
-extern struct Fleet;
+// Informs the compiler about Squadronss and Government.
+extern struct Squadron;
 extern class Government;
 
 /*
@@ -1028,8 +1066,8 @@ A tile containing a System.
 
 Contains stars (1-4), HabitablePlanets, and BarrenPlanets.
 
-51 bytes, 5 bytes of padding.
-sizeof is __.
+63  bytes, 1 byte of padding.
+sizeof is 64.
 */
 class System {
 public:
@@ -1039,22 +1077,34 @@ public:
 
 	// Array of Stars.
 	// Note: Can contain 1-4 stars.
-	Star stars[4]; // 32 bytes
+	Star stars[4]; // 32 bytes.
 
 	// Array of SystemPlanetTiles.
 	HabitablePlanet** planets; // 8 bytes
 
 	// Array of SystemBarrenTiles.
-	BarrenPlanet** barrens; // 8 bytes
+	BarrenPlanet** barrens; // 8 bytes.
+
+	// Array of paths between this system and nearby systems.
+	// Paths are composed of offsets from this system rather than being literal.
+	// The first Coord.x in any path stores the length of the path (use to iterate).
+	// The first Coord.y in any path stores metadata (whether the trade lane is open?).
+	// The final Coord in the list will always be (0, 0).
+	CoordI* tradeLanes; // 8 bytes.
+
+	// Location of this System.
+	CoordU loc; // 4 bytes.
 
 	// Number of stars.
-	uint_least8_t numStars; // 1 byte
+	uint_least8_t numStars; // 1 byte.
 
 	// Number of planets.
-	uint_least8_t numHabitable; // 1 byte
+	uint_least8_t numHabitable; // 1 byte.
 
 	// Number of barrens.
-	uint_least8_t numBarren; // 1 byte
+	uint_least8_t numBarren; // 1 byte.
+
+	// 1 bytes padding.
 
 	// Unused no argument constructor for a SystemSpaceTile.
 	System();
@@ -1074,11 +1124,73 @@ public:
 	// Initializes the barrens array.
 	void initBarren(int numBarren);
 
-	// Adds a Star to this SystemSpaceTile.
-	void addStar(Star star, int index);
+	// Initializes trade lanes for this System.
+	void initTradeLanes(int maxLength);
 
-	// Adds a HabitablePlanet to this SystemSpaceTile.
-	void addPlanet(HabitablePlanet* planet, int index);
+};
+
+/*
+Array storing travel times associated with each tile type.
+*/
+int universeMovementCost[] = {
+	128, // SYSTEM_TILE
+	128, // THICK_SPACE_TILE
+	128  // THIN_SPACE TILE
+};
+
+/*
+Array storing sensor difficulty associated with each tile type.
+*/
+int universeSensorDifficulty[] = {
+	128, // SYSTEM_TILE
+	128, // THICK_SPACE_TILE
+	32   // THIN_SPACE_TILE
+};
+
+/*
+Parent for any given GalaxyTile.
+
+28 bytes, 4 bytes padding.
+sizeof is 32.
+*/
+class GalaxyTile {
+public:
+
+	// Contains the System of this GalaxyTile if there is one.
+	System* system; // 8 bytes.
+
+	// Stores the Squadrons in this GalaxyTile.
+	Squadron** squadrons; // 8 bytes.
+
+	// Stores the de-jure owner of this GalaxyTile.
+	Government* owner; // 8 bytes.
+
+	// Stores the closure of this GalaxyTile.
+	uint_least16_t closure; // 2 bytes.
+
+	// Stores the number of Squadrons in this GalaxyTile.
+	uint_least8_t numSquadrons; // 1 byte.
+
+	// tileID for the GalaxyTile.
+	uint_least8_t tileID; // 1 byte.
+
+	// 4 bytes padding.
+
+	// Gets the sprite and tileID for this tile.
+	SDL_Rect getSprite();
+	GalaxyTileID getTileID();
+
+	// Adds a Squadron to this GalaxyTile.
+	void addSquadron(Squadron* squadron);
+
+	// Removes a Squadron from this GalaxyTile.
+	void removeSquadron(Squadron* squadron);
+
+	// Gets movement difficulty for this GalaxyTile.
+	inline int movementCost();
+
+	// Gets sensor difficulty for this GalaxyTile.
+	inline int sensorCost();
 
 };
 
@@ -1139,82 +1251,228 @@ void System::initBarren(int numBarren) {
 }
 
 /*
-Adds a Star to this SystemSpaceTile.
+Initializes tradeLanes for this System. Does so by pathfinding out from this
+System until maxLength is reached, then storing the paths between this System
+and all discovered Systems.
+
+Paths will only ever touch this System and the target System. i.e. if the path
+from A to C crosses B, there will exist paths from A to B and B to C but not
+A to C. This may not be reciprocal in the case where finicky pathfinding causes
+the path from C to A to not touch B.
+
+TODO remove non-reciprocal relationships?
 */
-void System::addStar(Star star, int index) { stars[index] = star; }
+void System::initTradeLanes(int maxLength) {
+	LinkedListNode<PathCoordinate>* currPos;
+	LinkedListNode<PathCoordinate>* checkPos;
+	LinkedListNode<PathCoordinate>* coord;
+	int tSize = 1;
+	int tempSize = 0;
+	int curr = 0;
 
-/*
-Adds a HabitablePlanet to this SystemSpaceTile.
-*/
-void System::addPlanet(HabitablePlanet* planet, int index) { planets[index] = planet; }
+	// Informs the compiler about the universe.
+	extern GalaxyTile* universe;
 
-/*
-Parent for any given GalaxyTile.
-*/
-class GalaxyTile {
-public:
+	// Uses a map to mark down explored tiles.
+	uint_least8_t* exploredMap = requestDummy();
+	memset(exploredMap, 0, sizeof(uint_least8_t) * universeWidth * universeHeight);
 
-	// Contains the System of this GalaxyTile if there is one.
-	System* system;
+	// Requests a coordList for this function.
+	LinkedList<PathCoordinate>* coordList = requestCoordList();
 
-	// Stores the Fleets in this GalaxyTile.
-	Fleet** fleets;
+	// Creates a LinkedList for storing the frontier.
+	LinkedList<PathCoordinate> frontier = LinkedList<PathCoordinate>();
 
-	// Stores the closure of this GalaxyTile.
-	uint_least16_t closure;
+	// Creates a LinkedList for storing explored.
+	LinkedList<PathCoordinate> explored = LinkedList<PathCoordinate>();
 
-	// Stores the number of Fleets in this GalaxyTile.
-	uint_least8_t numFleets;
+	// Adds the initial tile to the frontier.
+	coord = coordList->popc();
+	coord->value->coord.x = loc.x;
+	coord->value->coord.y = loc.y;
+	coord->value->gValue = 0;
+	coord->previous = nullptr;
+	coord->value->info = false;
+	frontier.addc(coord);
+	exploredMap[index(loc.x, loc.y, universeWidth)] = true;
 
-	// tileID for the GalaxyTile.
-	uint_least8_t tileID;
+	// Pathfinds until there are no available tiles.
+	while (!frontier.isEmpty()) {
 
-	// Gets the sprite and tileID for this tile.
-	SDL_Rect getSprite();
-	GalaxyTileID getTileID();
+		// Starts exploring the first node in the frontier.
+		currPos = frontier.popc();
+		explored.addc(currPos);
 
-	// Adds a Fleet to this GalaxyTile.
-	void addFleet(Fleet* fleet);
+		// Adds all adjacent tiles to the frontier.
+		actionDirection(currPos->value->coord.x, currPos->value->coord.y,
+			[this, &exploredMap, &coordList, &frontier, currPos, maxLength](int x, int y)->void {
+				int gValue;
+				LinkedListNode<PathCoordinate>* coord;
 
-	// Removes a Fleet from this GalaxyTile.
-	void removeFleet(Fleet* fleet);
+				// Places the coord if it has not been explored.
+				if (!exploredMap[index(x, y, universeWidth)] && uIndex(x, y).tileID != THIN_SPACE_TILE) {
 
-};
+					// Marks this tile explored.
+					exploredMap[index(x, y, universeWidth)] = true;
 
-/*
-Adds a Fleet to this GalaxyTile.
-*/
-void GalaxyTile::addFleet(Fleet* fleet) {
+					// Selects the gValue.
+					gValue = currPos->value->gValue + 1;
 
-	// Array size will be incremented by 8.
-	const int inc = 8;
+					// Adds the coord to the frontier if it has an appropriate gValue.
+					if (gValue < maxLength) {
 
-	// If fleets is empty, initializes it.
-	if (!numFleets) fleets = (Fleet**)malloc(sizeof(Fleet*) * inc);
-	// If fleets is too small, resizes it.
-	else if (!(numFleets % inc)) fleets = (Fleet**)realloc(fleet, sizeof(Fleet*) * (numFleets + inc));
+						// Places the coord.
+						coord = coordList->popc();
+						coord->value->coord.x = x;
+						coord->value->coord.y = y;
+						coord->value->gValue = gValue;
+						coord->previous = currPos;
 
-	// Assigns the Fleet to the GalaxyTile.
-	fleets[numFleets] = fleet;
-	++numFleets;
+						// Notes whether the Coord contains a System.
+						coord->value->info = uSystem(x, y) != nullptr;
+
+						// Adds the coord to the frontier for exploration.
+						frontier.addc(coord);
+
+					}
+				}
+			}
+		);
+	}
+
+	// Ensures that there are no redundant paths. Does so by invalidating paths
+	// that contain a system en-route to them.
+	// The number of tiles needed for tradeLanes is also calculated here.
+	// Note that frontier is reused here to store checked nodes.
+	while (!explored.isEmpty()) {
+		checkPos = explored.popc();
+
+		// If the node is a path destination, attempts to invalidate it.
+		if (checkPos->value->info) {
+			currPos = checkPos;
+			tempSize = 0;
+
+			// Checks to see if there is a System en-route to the destination.
+			while (currPos = currPos->previous) {
+				++tempSize;
+
+				// Marks the node as an invalid path if it has a System en-route.
+				if (currPos->value->info) {
+					checkPos->value->info = false;
+					tempSize = 0;
+					break;
+
+				}
+			}
+
+			// Tracks the appropriate size of tradeLanes.
+			if (tempSize) tSize += tempSize + 1;
+
+		}
+
+		// Stores the checked node in frontier.
+		frontier.addc(checkPos);
+
+	}
+
+	// Allocates memory for tradeLanes.
+	tradeLanes = (CoordI*)malloc(tSize * sizeof(CoordI));
+
+	// Stores all valid paths within tradeLanes.
+	// Note that frontier and explored have again been inverted.
+	while (!frontier.isEmpty()) {
+		checkPos = frontier.popc();
+
+		// If the node is a path destination, places the path within tradeLanes.
+		if (checkPos->value->info) {
+			currPos = checkPos;
+			tempSize = 0;
+
+			// Places the path.
+			// This algorithm ends up placing 0,0 in tradeLanes[curr].
+			do {
+				tradeLanes[curr + (int)currPos->value->gValue].x = currPos->value->coord.x - loc.x;
+				tradeLanes[curr + (int)currPos->value->gValue].y = currPos->value->coord.y - loc.y;
+				++tempSize;
+
+			} while (currPos = currPos->previous);
+
+			// Places the path's length.
+			tradeLanes[curr].x = tempSize - 1;
+
+			// Offsets to the next path location within tradeLanes.
+			curr += tempSize;
+
+		}
+
+		// Stores the checked node in explored.
+		explored.addc(checkPos);
+
+	}
+
+	// Places 0, 0 at the end of tradeLanes to mark its end.
+	tradeLanes[tSize - 1].x = 0;
+	tradeLanes[tSize - 1].y = 0;
+
+	// Returns all explored nodes to the coordList.
+	while (!explored.isEmpty()) coordList->addc(explored.popc());
+
+	// Releases held data.
+	releaseCoordList(coordList);
+	releaseDummy(exploredMap);
 
 }
 
 /*
-Removes a Fleet from this GalaxyTile.
+Adds a Squadron to this GalaxyTile.
 */
-void GalaxyTile::removeFleet(Fleet* fleet) {
+void GalaxyTile::addSquadron(Squadron* squadron) {
 
-	// Finds the fleet.
+	// Array size will be incremented by 8.
+	const int inc = 8;
+
+	// If squadrons is empty, initializes it.
+	if (!numSquadrons) squadrons = (Squadron**)malloc(sizeof(Squadron*) * inc);
+	// If squadrons is too small, resizes it.
+	else if (!(numSquadrons % inc)) squadrons = (Squadron**)realloc(squadrons, sizeof(Squadron*) * (numSquadrons + inc));
+
+	// Assigns the Squadron to the GalaxyTile.
+	squadrons[numSquadrons] = squadron;
+	++numSquadrons;
+
+}
+
+/*
+Removes a Squadron from this GalaxyTile.
+*/
+void GalaxyTile::removeSquadron(Squadron* squadron) {
+
+	// Finds the squadron.
 	int curr = 0;
-	for (; fleets[curr] != fleet && curr < numFleets; ++curr);
+	for (; squadrons[curr] != squadron && curr < numSquadrons; ++curr);
 
-	// Removes the fleet.
-	--numFleets;
-	for (int i = curr; i < numFleets; ++i) fleets[i] = fleets[i + 1];
+	// Removes the squadron.
+	--numSquadrons;
+	for (int i = curr; i < numSquadrons; ++i) squadrons[i] = squadrons[i + 1];
 
-	// Deletes fleets if numFleets is 0.
-	if (!numFleets) free(fleets);
+	// Deletes squadrons if numSquadrons is 0.
+	if (!numSquadrons) free(squadrons);
+
+}
+
+/*
+Gets movement difficulty for this GalaxyTile.
+*/
+inline int GalaxyTile::movementCost() {
+	return universeMovementCost[tileID];
+
+}
+
+/*
+Gets sensor difficulty for this GalaxyTile.
+*/
+inline int GalaxyTile::sensorCost() {
+	return universeSensorDifficulty[tileID];
 
 }
 

@@ -1,15 +1,22 @@
 #pragma once
 
-// Macro for accessing a battle tile from a battle.
+// Macro for accessing a GroundBattleTile from a battle.
 // Undefined at the end of this file.
 #define gbIndex(x, y, planet) battlefield[index(x, y, planet->size)]
 
+// Macro for accessing a GroundUnitTemplate from a battle tile.
+// Undefined at the end of this file.
+#define gbUnitTemplate(x, y, n, planet) owners[battlefield[index(x, y, planet->size)].owner].unitTable[battlefield[index(x, y, planet->size)].units[n].unit]
+
 // Number of units that can be held in a given tile.
-#define NUM_TILE_UNITS 3
+#define NUM_TILE_UNITS 2
+
+// Assumed maximum number of fronts. 
+// Note that this is not checked/binding and only informs memset/arr sizes.
+#define MAX_GROUND_FRONTS 512
 
 // TODO DEBUG REMOVE
 extern HabitablePlanet* activeHabitable;
-extern void changeActiveSystem(System*);
 extern void changeActiveHabitable(HabitablePlanet*);
 extern int gameSpeed;
 
@@ -21,19 +28,34 @@ enum GroundDamageTypes {
 
 };
 
+// Enum signifying types of movement that a Ground Unit can perform.
+// TODO add more including duck, wheel, rudder, etc. Remember to increase movementType size.
+enum GroundMovementTypes {
+	LimbMovement,
+	TrackMovement,
+	SailMovement,
+	FlightMovement
+};
+
 /*
 Template for a ground unit.
+
+8 bytes.
 */
 struct GroundUnitTemplate {
 
-	// Nullifies a certain amount of ballistic damage.
-	uint_least8_t ballisticArmor; // ballistic armor
-	// heat armor
-	// psionic armor
+	// Armor types which nullify a certain amount of damage.
+	uint_least8_t ballisticArmor;
+	uint_least8_t heatArmor;
+	uint_least8_t psionicArmor;
 
 	// Damage done. Damage has precisely one type.
 	uint_least8_t damage;
-	uint_least8_t damageType : 3;
+	uint_least8_t damageType : 2;
+
+	// Movement types. Split with damageType to minimize memory footprint.
+	uint_least8_t movement : 4;
+	uint_least8_t movementType : 2;
 
 	// Range of a unit. When a unit attacks another unit with lower range, there will
 	// be no counterratack. Further, when a unit attacks a unit with higher range, the
@@ -46,7 +68,7 @@ struct GroundUnitTemplate {
 	// Estimated strength of this ground unit.
 	uint_least8_t estimatedStrength;
 
-	// 2 bytes until 8 byte aligned
+	// 8 byte aligned.
 
 };
 
@@ -60,7 +82,10 @@ struct GroundFront {
 	uint_least32_t enemyStrength;
 
 	// Number of tiles for this front.
-	uint_least16_t numTiles;
+	uint_least16_t numTiles : 15;
+
+	// Whether this front is a land or sea front.
+	uint_least16_t isLand : 1;
 
 	// Indices within owners for the front's owner and enemy.
 	uint_least8_t owner;
@@ -84,19 +109,19 @@ struct GroundOwner {
 
 /*
 Struct representing a Ground Unit on a planet.
+
+2 bytes.
 */
 struct GroundUnit {
 
 	// Quantity associated with the given unit.
 	uint_least8_t quantity;
 
-	// Indicates that this unit is presently moving.
-	uint_least8_t moving : 1;
-
 	// Type of unit in the tile. 0 connotes no unit.
 	uint_least8_t unit : 7;
 
-	// 2 bytes
+	// Indicates that this unit is presently moving.
+	uint_least8_t moving : 1;
 
 };
 
@@ -106,18 +131,19 @@ Struct representing a tile on a planetary battlefield.
 struct GroundBattleTile {
 
 	// Unit within this tile.
-	// units[2] is used for garrisons and moving units.
+	// units[1] is used for garrisons and moving units.
+	// TODO is this true?
 	GroundUnit units[NUM_TILE_UNITS];
 
 	// Front that this tile is on.
 	// Note: front == 0 connotes unnocupied.
-	uint_least8_t front;
+	uint_least16_t front;
 
 	// Owner of this tile.
 	// Used as an index in the array of owners in battles.
 	uint_least8_t owner;
 
-	// 8 byte aligned
+	// 1 byte of padding.
 
 };
 /*
@@ -125,6 +151,7 @@ Determines the casualties of a Ground battle between two inputed units.
 Note: The new quantities are returned via attackers and defenders.
 
 TODO this entire system should be reworked, the current function is strictly temporary.
+TODO attacks from sea to land/vice versa should be highly range dependent
 */
 inline void determineGroundCasualties(GroundUnitTemplate attackerUnit, GroundUnitTemplate defenderUnit, uint_least8_t* attackers, uint_least8_t* defenders) {
 	uint_least8_t attackerRet = *attackers;
@@ -180,7 +207,7 @@ public:
 	LinkedList<Coord> movements;
 
 	// Comparison matrix for storing combatants in the battle.
-	// Note: comp.byte1 stores numOwners and comp.byte2 stores numFronts
+	// Note: comp.byte1 stores numOwners and comp.short1 stores numFronts
 	// to save memory from padding.
 	ComparisonMatrix comp;
 
@@ -189,7 +216,7 @@ public:
 	GroundOwner* owners;
 
 	// Array of fronts in the battlefield.
-	// fronts[0] connotes land which belongs to no front. comp.byte2 stores numFronts.
+	// fronts[0] connotes land which belongs to no front. comp.short1 stores numFronts.
 	// numTiles == 0 connots an unused front.
 	GroundFront* fronts;
 
@@ -215,8 +242,8 @@ public:
 	// Meant to be called by outside functions.
 	void extendFronts(int x, int y, Colony* owner);
 
-	// Reinforces the Battle.
-	void reinforce(void* owner, int numUnits, int unit);
+	// Reinforces the Battle. Returns the number of unused units.
+	int reinforce(void* owner, int numUnits, int unit);
 
 	// Places units into a tile.
 	// Adjusts front strengths.
@@ -231,6 +258,9 @@ public:
 
 	// TODO DEBUG REMOVE
 	bool checkFronts();
+
+	// TODO DEBUG REMOVE
+	bool checkPaths();
 
 	// TODO DEBUG REMOVE
 	bool checkUnits();
@@ -249,6 +279,12 @@ private:
 	// Initializes the owners for the Battle.
 	// comp is also initialized here.
 	void initOwners();
+
+	// Checks if the inputed unit can occupy the inputed terrain.
+	inline bool canOccupyTerrain(int x, int y, GroundUnitTemplate unit);
+
+	// Checks if the inputed unit can occupy the inputed terrain.Used for reinforcing fronts.
+	inline bool canOccupyTerrain(int isLand, GroundUnitTemplate unit);
 
 	// Estimates the offensive strength of a certain quantity of a certain unit.
 	inline int groundUnitStrength(uint_least8_t owner, uint_least8_t unit, uint_least8_t quantity);
@@ -316,8 +352,14 @@ private:
 	// Extends a planet's fronts from the inputed tile.
 	void extendFrontsHelper(int x, int y, int owner);
 
-	// Extends a front from an inputed tile.
-	void extendFront(int currX, int currY, int front);
+	// Extends a front. Will call either extendGroundFront or extendSeaFront.
+	inline void extendFront(int currX, int currY, int front);
+
+	// Extends a ground front from an inputed tile.
+	void extendLandFront(int currX, int currY, int front);
+
+	// Extends a sea front from an inputed tile.
+	void extendSeaFront(int currX, int currY, int front);
 
 	// Reinforces a front.
 	void reinforceFront(int front, int numUnits, int unit);
@@ -333,23 +375,30 @@ bool Battle::checkFronts() {
 	static int ret = 0;
 	int tot1 = 0, tot2 = 0;
 	int xPos, yPos;
-	uint_least32_t strengths[256];
-	uint_least32_t enemyStrengths[256];
+	uint_least32_t strengths[MAX_GROUND_FRONTS];
+	uint_least32_t enemyStrengths[MAX_GROUND_FRONTS];
+	uint_least32_t numTiles[MAX_GROUND_FRONTS];
 	uint_least8_t* dummy;
-	memset(strengths, 0, sizeof(int) * 256);
-	memset(enemyStrengths, 0, sizeof(int) * 256);
+	memset(strengths, 0, sizeof(int) * MAX_GROUND_FRONTS);
+	memset(enemyStrengths, 0, sizeof(int) * MAX_GROUND_FRONTS);
+	memset(numTiles, 0, sizeof(numTiles[0]) * MAX_GROUND_FRONTS);
 	
 	if (ret) return 0;
 
 	// Get dummy.
 	dummy = requestDummy();
 
-	// Find strengths.
-	for (int i = 0; i < planet->size * planet->size; ++i)
-		if (battlefield[i].owner) strengths[battlefield[i].front] += groundUnitTileStrength(battlefield[i]);
+	// Find strengths and numTiles.
+	for (int i = 0; i < planet->size * planet->size; ++i) {
+		if (battlefield[i].owner) {
+			strengths[battlefield[i].front] += groundUnitTileStrength(battlefield[i]);
+			++numTiles[battlefield[i].front];
+
+		}
+	}
 
 	// Find enemyStrengths for each front.
-	for (int currFront = 1; currFront < comp.byte2; ++currFront) {
+	for (int currFront = 1; currFront < comp.short1; ++currFront) {
 		memset(dummy, 0, planet->size * planet->size * sizeof(uint_least8_t));
 
 		// Checks every tile.
@@ -366,7 +415,7 @@ bool Battle::checkFronts() {
 							wrapAroundPlanet(planet->size, &xPos, &yPos);
 
 							// If at war, not moving, and not already counted, adds value. 
-							if (comp.comp(gbIndex(i, j, planet).owner, gbIndex(xPos, yPos, planet).owner) && !gbIndex(xPos, yPos, planet).units[0].moving && !dummy[index(xPos, yPos, planet->size)]) {
+							if (comp.comp(gbIndex(i, j, planet).owner, gbIndex(xPos, yPos, planet).owner) && !dummy[index(xPos, yPos, planet->size)]) {
 								enemyStrengths[currFront] += groundUnitTileStrength(gbIndex(xPos, yPos, planet));
 								dummy[index(xPos, yPos, planet->size)] = 1;
 
@@ -382,19 +431,88 @@ bool Battle::checkFronts() {
 	releaseDummy(dummy);
 
 	// Compare strengths and enemyStrengths. Return 1 if there is a discrepency.
-	for (int i = 1; i < comp.byte2; ++i) {
+	for (int i = 1; i < comp.short1; ++i) {
 		if ((uint_least32_t)strengths[i] != (uint_least32_t)fronts[i].strength) { ret = 1;  return 1; }
 		if ((uint_least32_t)enemyStrengths[i] != (uint_least32_t)fronts[i].enemyStrength) {	ret = 1;  return 1;	}
 	}
 
 	// Totals for strengths.
-	for (int i = 1; i < comp.byte2; ++i) {
+	for (int i = 1; i < comp.short1; ++i) {
 		tot1 += strengths[i];
 		tot2 += fronts[i].strength;
 	}
 
+	// Compares numTiles.
+	for (int i = 1; i < comp.short1; ++i) {
+		if (numTiles[i] != fronts[i].numTiles) { ret = 1;  return 1; }
+
+	}
+
 	// return 0 if all goes well.
 	return 0;
+}
+
+/*
+* TODO DEBUG REMOVE
+Checks that all paths have units at their associated positions and all units are associated correctly with paths.
+*/
+bool Battle::checkPaths() {
+	int ret = false;
+	LinkedListNode<Coord>* currNode = movements.root;
+	uint_least8_t* dummy = requestDummy();
+	memset(dummy, 0, sizeof(uint_least8_t) * planet->size * planet->size);
+
+	// Reviews every path.
+	while (currNode != nullptr) {
+
+		// Reviews every coord in the path.
+		for (int curr = 2; curr < currNode->value->x; ++curr) {
+
+			// Dummy is 1 for being part of the path, 2 for containing the unit.
+			dummy[index(currNode->value[curr].x, currNode->value[curr].y, planet->size)] = 1 + (curr == currNode->value->y);
+
+		}
+
+		// Moves on to the next path.
+		currNode = currNode->child;
+
+	}
+
+	// Debug code to display the current movement paths.
+	//if (planet == activeHabitable) {
+	//	printf("   ");
+	//	for (int i = 0; i < planet->size; ++i) printf("%3d", i);
+	//	printf("\n");
+	//	for (int i = 0; i < planet->size; ++i) {
+	//		printf("%3d", i);
+	//		for (int j = 0; j < planet->size; ++j) {
+	//			printf("%3d", dummy[index(i, j, planet->size)]);
+
+	//		}
+	//		printf("\n");
+	//	}
+	//}
+
+	// Checks for discrepencies between the battle and the paths.
+	for (int i = 0; i < planet->size * planet->size; ++i) {
+
+		// There is a discrepency when there is a moving unit and the dummy is not assigned.
+		if ((battlefield[i].units[1].quantity && battlefield[i].units[1].moving) && !dummy[i]) {
+			int x;
+			int y;
+			deIndex(x, y, i, planet->size);
+			printf("%p : discrepency at tile [%d, %d], dummy : %d, moving : %d\n", planet, x, y, dummy[i], battlefield[i].units[1].quantity && battlefield[i].units[1].moving);
+			ret = true;
+
+		}
+	}
+
+	// Releases the dummy.
+	releaseDummy(dummy);
+
+	// Returns false if all goes well.
+	return ret;
+
 }
 
 /*
@@ -404,20 +522,28 @@ verifies that fronts have proper values
 void Battle::verifyFronts() {
 	int tot1 = 0, tot2 = 0;
 	int xPos, yPos;
-	uint_least32_t strengths[256];
-	uint_least32_t enemyStrengths[256];
+	uint_least32_t strengths[MAX_GROUND_FRONTS];
+	uint_least32_t enemyStrengths[MAX_GROUND_FRONTS];
+	uint_least32_t numTiles[MAX_GROUND_FRONTS];
 	uint_least8_t* dummy;
-	memset(strengths, 0, sizeof(int) * 256);
-	memset(enemyStrengths, 0, sizeof(int) * 256);
+	memset(strengths, 0, sizeof(strengths[0]) * MAX_GROUND_FRONTS);
+	memset(enemyStrengths, 0, sizeof(enemyStrengths[0]) * MAX_GROUND_FRONTS);
+	memset(numTiles, 0, sizeof(numTiles[0]) * MAX_GROUND_FRONTS);
 
 	// Get dummy.
 	dummy = requestDummy();
 
-	// Find strengths.
-	for (int i = 0; i < planet->size * planet->size; ++i) if (battlefield[i].owner) strengths[battlefield[i].front] += groundUnitTileStrength(battlefield[i]);
+	// Find strengths and numTiles.
+	for (int i = 0; i < planet->size * planet->size; ++i) {
+		if (battlefield[i].owner) {
+			strengths[battlefield[i].front] += groundUnitTileStrength(battlefield[i]);
+			++numTiles[battlefield[i].front];
+
+		}
+	}
 
 	// Find enemyStrengths for each front.
-	for (int currFront = 1; currFront < comp.byte2; ++currFront) {
+	for (int currFront = 1; currFront < comp.short1; ++currFront) {
 
 		// Clear dummy.
 		memset(dummy, 0, planet->size * planet->size * sizeof(uint_least8_t));
@@ -435,8 +561,8 @@ void Battle::verifyFronts() {
 							yPos = j + y;
 							wrapAroundPlanet(planet->size, &xPos, &yPos);
 
-							// If at war, not moving, and not already counted, adds value. 
-							if (comp.comp(gbIndex(i, j, planet).owner, gbIndex(xPos, yPos, planet).owner) && !gbIndex(xPos, yPos, planet).units[0].moving && !dummy[index(xPos, yPos, planet->size)]) {
+							// If at war and not already counted, adds value. 
+							if (comp.comp(gbIndex(i, j, planet).owner, gbIndex(xPos, yPos, planet).owner) && !dummy[index(xPos, yPos, planet->size)]) {
 								enemyStrengths[currFront] += groundUnitTileStrength(gbIndex(xPos, yPos, planet));
 								dummy[index(xPos, yPos, planet->size)] = 1;
 
@@ -451,14 +577,16 @@ void Battle::verifyFronts() {
 	// Release the dummy.
 	releaseDummy(dummy);
 
-	// Compare strengths and enemyStrengths.
-	for (int i = 1; i < comp.byte2; ++i) {
+	// Compare strengths, enemyStrengths and numTiles.
+	for (int i = 1; i < comp.short1; ++i) {
 		if ((uint_least32_t)strengths[i] != (uint_least32_t)fronts[i].strength) printf("front[%d] (stren) : measured %u, front %d\n", i, (uint_least32_t)strengths[i], fronts[i].strength);
 		if ((uint_least32_t)enemyStrengths[i] != (uint_least32_t)fronts[i].enemyStrength) printf("front[%d] (enemy) : measured %u, front %d\n", i, (uint_least32_t)enemyStrengths[i], fronts[i].enemyStrength);
+		if (numTiles[i] != fronts[i].numTiles) printf("front[%d] (numtl) : measured : %u, front : %u\n", i, numTiles[i], fronts[i].numTiles);
+
 	}
 
 	// Totals for strengths.
-	for (int i = 1; i < comp.byte2; ++i) {
+	for (int i = 1; i < comp.short1; ++i) {
 		tot1 += strengths[i];
 		tot2 += fronts[i].strength;
 	}
@@ -467,7 +595,7 @@ void Battle::verifyFronts() {
 	// Finds the total strength of all enemyStrengths.
 	tot2 = 0;
 	int tot3 = 0;
-	for (int i = 1; i < comp.byte2; ++i) {
+	for (int i = 1; i < comp.short1; ++i) {
 		tot2 += fronts[i].enemyStrength;
 		tot3 += enemyStrengths[i];
 
@@ -477,6 +605,9 @@ void Battle::verifyFronts() {
 	int tot4 = 0;
 	for (int i = 0; i < planet->size * planet->size; ++i) tot4 += battlefield[i].units[0].quantity;
 	printf("total units / total front units / measured enemyStrengths / enemyStrengths : %d, %d, %d, %d\n", tot4, tot1, tot3, tot2);
+
+	// Prints comp.short1
+	printf("numFronts : %d\n", (int)comp.short1);
 
 }
 
@@ -512,8 +643,8 @@ Battle::Battle(HabitablePlanet* planet) {
 	owners = new GroundOwner[comp.byte1]();
 
 	// Initializes fronts. The first front belongs to nobody.
-	comp.byte2 = 1;
-	fronts = new GroundFront[comp.byte2]();
+	comp.short1 = 1;
+	fronts = new GroundFront[comp.short1]();
 
 	// Initializes the owners for the Battle.
 	// comp.byte1 and owners are initialzed here.
@@ -556,11 +687,13 @@ the battlefield.
 */
 void Battle::battle() {
 
+	// Assigns movement orders to units without fronts.
+	moveToFronts();
+
 	// Moves units along their designated paths.
 	moveUnits();
 
-	// Assigns movement orders to units without fronts.
-	moveToFronts();
+	if (checkPaths()) { printf("Path Discrepency\n"); gameSpeed = 0; changeActiveHabitable(planet); };
 
 	// Assigns movement orders between fronts.
 	//moveBetweenFronts();
@@ -579,7 +712,7 @@ void Battle::battle() {
 
 	// TODO DEBUG REMOVE
 	// REMOVE extern changeActiveHabitable
-	//if (checkFronts()) { printf("discrepency\n"); verifyFronts(); gameSpeed = 0; changeActiveHabitable(planet); }
+	//if (checkFronts()) { printf("Front Discrepency\n"); verifyFronts(); gameSpeed = 0; changeActiveHabitable(planet); }
 
 }
 
@@ -601,7 +734,7 @@ It is assumed that enemy and owner will be assigned immediately after this metho
 int Battle::getUnusedFront() {
 
 	// Attempts to find an empty front.
-	for (int i = 1; i < comp.byte2; ++i) {
+	for (int i = 1; i < comp.short1; ++i) {
 		if (!fronts[i].numTiles) {
 			fronts[i].strength = 0;
 			fronts[i].enemyStrength = 0;
@@ -611,12 +744,12 @@ int Battle::getUnusedFront() {
 	}
 
 	// Creates a new GroundFront if no front was found.
-	++comp.byte2;
-	fronts = (GroundFront*)realloc(fronts, sizeof(GroundFront) * comp.byte2);
-	fronts[comp.byte2 - 1].numTiles = 0;
-	fronts[comp.byte2 - 1].strength = 0;
-	fronts[comp.byte2 - 1].enemyStrength = 0;
-	return comp.byte2 - 1;
+	++comp.short1;
+	fronts = (GroundFront*)realloc(fronts, sizeof(GroundFront) * comp.short1);
+	fronts[comp.short1 - 1].numTiles = 0;
+	fronts[comp.short1 - 1].strength = 0;
+	fronts[comp.short1 - 1].enemyStrength = 0;
+	return comp.short1 - 1;
 
 }
 
@@ -672,6 +805,26 @@ void Battle::initOwners() {
 }
 
 /*
+Checks if the inputed unit can occupy the inputed terrain.
+*/
+inline bool Battle::canOccupyTerrain(int x, int y, GroundUnitTemplate unit) {
+	return unit.movementType == FlightMovement || // Flight is compatible with all types.
+		(pBuilding(x, y, planet) >= Harbour1 && pBuilding(x, y, planet) <= Harbour5) || // All types are compatible with Harbours.
+		(pIsLand(x, y, planet) && (unit.movementType == LimbMovement || unit.movementType == TrackMovement)) || // Land compatible.
+		(!pIsLand(x, y, planet) && unit.movementType == SailMovement); // Sea compatible.
+
+}
+
+/*
+Checks if the inputed unit can occupy the inputed terrain. Used for reinforcing fronts.
+*/
+inline bool Battle::canOccupyTerrain(int isLand, GroundUnitTemplate unit) {
+	return unit.movementType == FlightMovement || // Flight is compatible with all types.
+		(isLand && (unit.movementType == LimbMovement || unit.movementType == TrackMovement)) || // Land compatible.
+		(!isLand && unit.movementType == SailMovement); // Sea compatible.
+}
+
+/*
 Estimates the offensive strength of a certain quantity of a certain unit.
 */
 inline int Battle::groundUnitStrength(uint_least8_t owner, uint_least8_t unit, uint_least8_t quantity) {
@@ -711,6 +864,9 @@ inline int Battle::groundUnitTileStrength(GroundBattleTile tile) {
 Returns the first owner adjacent to the owner on the inputed tile. Will return the inputed owner
 if no adjacent owner is found. Though fronts are drawn against unowned tiles, non unowned tiles are
 prioritized by this algorithm.
+
+As a special case, this algorithm will return 0 in such case where the front of x,y is a land front
+and is adjacent to a sea tile.
 */
 int Battle::findAdjacentEnemy(int x, int y, int owner) {
 	int tempOwner = owner;
@@ -732,6 +888,9 @@ int Battle::findAdjacentEnemy(int x, int y, int owner) {
 				else tempOwner = gbIndex(xPos, yPos, planet).owner;
 
 			}
+			// Stores 0 if the inputed tile contains a landFront adjacent to sea.
+			else if (pIsLand(x, y, planet) && !pIsLand(xPos, yPos, planet)) tempOwner = 0;
+
 		}
 	}
 
@@ -781,7 +940,7 @@ This is used to enemy strength when units are added or removed from a front.
 void Battle::adjustAdjacentEnemyStrengths(int x, int y, int strength) {
 	int xPos, yPos;
 	int currEdit = 0;
-	uint_least8_t edited[8];
+	uint_least16_t edited[8];
 
 	// Changes strength for each adjacent enemy front.
 	for (int i = -1; i < 2; ++i) {
@@ -837,11 +996,17 @@ int Battle::checkOwnerAdjacency(int x, int y, int owner) {
 
 /*
 Checks to see if a tile on a planet is adjacent to a tile belonging to the inputed enemy.
+
 This function will return false in such case where the inputed enemy is zero and there is a
-non zero enemy nearby.
+non zero enemy nearby. This incites creation of new fronts.
+
+This function will return true in such case where an inputed land front's enemy is zero, there
+is no adjacent enemy tile, and there is an adjacent sea tile. This creates sea-wall fronts.
+Note: It would be optimal to avoid checking for adjacent sea tiles when sea fronts are inputed,
+	perhaps the function should be split.
 */
 int Battle::checkEnemyAdjacency(int x, int y, GroundFront* front) {
-	int zeroFound = 0;
+	int special = 0;
 	int xPos, yPos;
 
 	// Checks to see if any adjacent owner is equal to the inputed owner.
@@ -857,16 +1022,18 @@ int Battle::checkEnemyAdjacency(int x, int y, GroundFront* front) {
 			// If the inputed enemy is unowned and there is an adjacent owned tile, returns false.
 			else if (!front->enemy && gbIndex(xPos, yPos, planet).owner && gbIndex(xPos, yPos, planet).owner != front->owner) return false;
 			// If the front's enemy is unowned and an unowned tile is found, marks that down.
-			else if (!front->enemy && !gbIndex(xPos, yPos, planet).owner) zeroFound = 1;
+			else if (!front->enemy && !gbIndex(xPos, yPos, planet).owner) special = 1;
+			// If the front is a land front and its enemy is unowned, marks adjacent sea tiles.
+			else if (!front->enemy && front->isLand && !pIsLand(xPos, yPos, planet)) special = 1;
 
 		}
 	}
 
 	// If an adjacent tile with the inputed owner is not found, returns false.
 	if (front->enemy) return false;
-	// In the case that the inputed enemy is unowned, return true if any adjacent zero tile
-	// was found.
-	else if (zeroFound) return true;
+	// In the case that the inputed enemy is unowned, return true if no enemy tiles were
+	// found and an adjacent zero tile or sea tile was found.
+	else if (special) return true;
 
 	// Returns false in the case that the only adjacent tiles belong to the inputed owner.
 	return false;
@@ -899,17 +1066,30 @@ int Battle::checkFrontAdjacency(int x, int y, int front) {
 }
 
 /*
-Recursive function which extends the given front in all directions.
+Entry point for the recursive extendFront methods. Wraps conditions deciding between the two
+for convenience.
+*/
+inline void Battle::extendFront(int currX, int currY, int front) {
+	if (fronts[front].isLand) extendLandFront(currX, currY, front);
+	else extendSeaFront(currX, currY, front);
+
+}
+
+/*
+Recursive function which extends the given ground front in all directions.
 Extends the front to tiles which
 	- Are owned by the inputed owner.
 	- Are adjacent to the inputed enemy.
 	- Do not belong to this front.
 */
-void Battle::extendFront(int currX, int currY, int front) {
+void Battle::extendLandFront(int currX, int currY, int front) {
 	int xPos, yPos;
 
 	// Returns if the current tile belongs to this front.
 	if (gbIndex(currX, currY, planet).front == front) return;
+
+	// Returns if the current tile is not a land tile.
+	if (!pIsLand(currX, currY, planet)) return;
 
 	// Returns if the current tile does not belong to the inputed owner.
 	if (gbIndex(currX, currY, planet).owner != fronts[front].owner) return;
@@ -922,7 +1102,7 @@ void Battle::extendFront(int currX, int currY, int front) {
 	++fronts[front].numTiles;
 	--fronts[gbIndex(currX, currY, planet).front].numTiles;
 
-	// Changes enemy strengths associated with the fronts and changes the tile's front.
+	// Changes the tile's front.
 	gbIndex(currX, currY, planet).front = front;
 
 	// Attempts to continue to draw the front in each direction.
@@ -932,7 +1112,50 @@ void Battle::extendFront(int currX, int currY, int front) {
 			xPos = currX + i;
 			yPos = currY + j;
 			wrapAroundPlanet(planet->size, &xPos, &yPos);
-			extendFront(xPos, yPos, front);
+			extendLandFront(xPos, yPos, front);
+
+		}
+	}
+}
+
+/*
+Recursive function which extends the given sea front in all directions.
+Extends the front to tiles which
+	- Are owned by the inputed owner.
+	- Are adjacent to the inputed enemy.
+	- Do not belong to this front.
+*/
+void Battle::extendSeaFront(int currX, int currY, int front) {
+	int xPos, yPos;
+
+	// Returns if the current tile belongs to this front.
+	if (gbIndex(currX, currY, planet).front == front) return;
+
+	// Returns if the current tile is not a sea tile.
+	if (pIsLand(currX, currY, planet)) return;
+
+	// Returns if the current tile does not belong to the inputed owner.
+	if (gbIndex(currX, currY, planet).owner != fronts[front].owner) return;
+
+	// Returns if the current tile is not adjacent to the inputed enemy.
+	if (!checkEnemyAdjacency(currX, currY, &fronts[front])) return;
+
+	// Changes the number of tiles which this front and the overwritten front possess.
+	// Note: since fronts[0] is unused, underflow from decrementation is meaningless.
+	++fronts[front].numTiles;
+	--fronts[gbIndex(currX, currY, planet).front].numTiles;
+
+	// Changes the tile's front.
+	gbIndex(currX, currY, planet).front = front;
+
+	// Attempts to continue to draw the front in each direction.
+	for (int i = -1; i < 2; ++i) {
+		for (int j = -1; j < 2; ++j) {
+			if (!i && !j) continue;
+			xPos = currX + i;
+			yPos = currY + j;
+			wrapAroundPlanet(planet->size, &xPos, &yPos);
+			extendSeaFront(xPos, yPos, front);
 
 		}
 	}
@@ -945,6 +1168,7 @@ This function will assign the inputed owner to be the inputed tile's owner.
 void Battle::extendFrontsHelper(int x, int y, int owner) {
 	int front;
 	int enemy;
+	int isLand;
 	int xPos, yPos;
 
 	// Assigns the owner of this tile.
@@ -955,6 +1179,9 @@ void Battle::extendFrontsHelper(int x, int y, int owner) {
 		checkOwnerAdjacency(x, y, fronts[gbIndex(x, y, planet).front].enemy))
 		return;
 
+	// Marks whether the tile is land or sea.
+	isLand = pIsLand(x, y, planet);
+
 	// Finds any adjacent fronts belonging to the inputed owner.
 	for (int i = -1; i < 2; ++i) {
 		for (int j = -1; j < 2; ++j) {
@@ -964,9 +1191,11 @@ void Battle::extendFrontsHelper(int x, int y, int owner) {
 			wrapAroundPlanet(planet->size, &xPos, &yPos);
 
 			// In order to extend a front, there must be a nearby front belonging to the inputed
-			// owner which is associated with an adjacent enemy.
+			// owner which is associated with an adjacent enemy. The front must be on the same
+			// terrain type as the tile.
 			front = gbIndex(xPos, yPos, planet).front;
-			if (front && gbIndex(xPos, yPos, planet).owner == owner && checkEnemyAdjacency(x, y, &fronts[front])) {
+			if (front && isLand == pIsLand(xPos, yPos, planet) && gbIndex(xPos, yPos, planet).owner == owner &&
+				checkEnemyAdjacency(x, y, &fronts[front])) {
 				extendFront(x, y, front);
 				return;
 
@@ -979,6 +1208,7 @@ void Battle::extendFrontsHelper(int x, int y, int owner) {
 	front = getUnusedFront();
 	fronts[front].owner = owner;
 	fronts[front].enemy = enemy;
+	fronts[front].isLand = pIsLand(x, y, planet);
 	extendFront(x, y, front);
 
 }
@@ -1014,6 +1244,9 @@ void Battle::extendFronts(int x, int y, int owner) {
 
 			// Zeros the front on a tile if it has no adjacent enemies.
 			if (findAdjacentEnemy(xPos, yPos, gbIndex(xPos, yPos, planet).owner) == gbIndex(xPos, yPos, planet).owner) {
+
+				// TODO DEBUG REMOVE keeps front if it is land and has adjacent sea
+				//if (checkEnemyAdjacency(xPos, yPos, &fronts[gbIndex(xPos, yPos, planet).front])) continue;
 				--fronts[gbIndex(xPos, yPos, planet).front].numTiles;
 				gbIndex(xPos, yPos, planet).front = 0;
 
@@ -1032,23 +1265,26 @@ void Battle::extendFronts(int x, int y, Colony* owner) {
 }
 
 /*
-Brings reinforcements into the Battle. Will use all given reinforcements, prioritizing outnumbered fronts.
+Brings reinforcements into the Battle. Will attempt to use all given reinforcements, prioritizing outnumbered fronts.
+Returns the number of unplaced units.
 */
-void Battle::reinforce(void* own, int numReinforcements, int unit) {
+int Battle::reinforce(void* own, int numReinforcements, int unit) {
 	int owner;
 	int numUnits;
 	int lastFront = -1;
 	int remainder = numReinforcements;
-	double weights[256];
+	double weights[MAX_GROUND_FRONTS];
 	double totalWeight = 0;
 
 	// Finds the owner.
 	owner = getOwner(own);
 
-	// Determines the weights of all fronts belonging to the owner.
+	// Determines the weights of all fronts which belong to the owner and have appropriate
+	// Terrain for the given unit.
 	memset(weights, 0, sizeof(weights));
-	for (int front = 0; front < comp.byte2; ++front) {
-		if (fronts[front].numTiles && fronts[front].owner == owner) {
+	for (int front = 0; front < comp.short1; ++front) {
+		if (fronts[front].numTiles && fronts[front].owner == owner &&
+			canOccupyTerrain(fronts[front].isLand, owners[owner].unitTable[unit])) {
 			weights[front] = pow(2, -((long int)fronts[front].strength - (long int)fronts[front].enemyStrength));
 			totalWeight += weights[front];
 			lastFront = front;
@@ -1068,6 +1304,9 @@ void Battle::reinforce(void* own, int numReinforcements, int unit) {
 
 	// Reinforces the last front. Uses all remaining units.
 	if (lastFront >= 0) reinforceFront(lastFront, remainder, unit);
+
+	// Returns the number of remaining units in such case where there are still some remaining.
+	return remainder;
 
 }
 
@@ -1265,12 +1504,12 @@ void Battle::initFronts() {
 				if (owner == enemy) continue;
 
 				// Creates a new GroundFront for the new front.
-				++comp.byte2;
-				fronts = (GroundFront*)realloc(fronts, sizeof(GroundFront) * comp.byte2);
-				fronts[comp.byte2 - 1] = {0, 0, 0, owner, enemy};
+				++comp.short1;
+				fronts = (GroundFront*)realloc(fronts, sizeof(GroundFront) * comp.short1);
+				fronts[comp.short1 - 1] = {0, 0, 0, pIsLand(i, j, planet), owner, enemy};
 
 				// Draws the new front.
-				extendFront(i, j, comp.byte2 - 1);
+				extendFront(i, j, comp.short1 - 1);
 
 			}
 		}
@@ -1288,6 +1527,7 @@ coords[1] stores {unit, quantity}.
 TODO fix use of indices (should count down).
 */
 void Battle::moveToFronts() {
+	bool pathFound;
 	uint_least8_t unit;
 	uint_least8_t quantity;
 	uint_least8_t owner;
@@ -1300,39 +1540,33 @@ void Battle::moveToFronts() {
 			for (int i = 0; i < NUM_TILE_UNITS; ++i) {
 				if (gbIndex(x, y, planet).units[i].quantity && !gbIndex(x, y, planet).front && !gbIndex(x, y, planet).units[i].moving) {
 
-					// Marks the unit as moving.
-					// TODO make sure that 2 is not overwritten
-					gbIndex(x, y, planet).units[NUM_TILE_UNITS - 1] = gbIndex(x, y, planet).units[i];
-					gbIndex(x, y, planet).units[i] = { 0, 0, 0 };
-					gbIndex(x, y, planet).units[NUM_TILE_UNITS - 1].moving = 1;
-					unit = gbIndex(x, y, planet).units[NUM_TILE_UNITS - 1].unit;
-					quantity = gbIndex(x, y, planet).units[NUM_TILE_UNITS - 1].quantity;
+					// Marks the unit.
+					unit = gbIndex(x, y, planet).units[i].unit;
+					quantity = gbIndex(x, y, planet).units[i].quantity;
 					owner = gbIndex(x, y, planet).owner;
 
 					// Creates a path for the unit.
-					planet->planetPathfind(x, y, planet->size,
+					pathFound = planet->planetPathfind(x, y, planet->size,
 
 						// endCondition lambda. Ends when an unnocupied tile with a front is found or
 						// when an occupied tile containing less than 255 of the given unit is found.
 						[unit, quantity, owner](HabitablePlanet* planet, LinkedListNode<PathCoordinate>* currPos)->bool {
-							return pBattleIndex(currPos->value->coord.x, currPos->value->coord.y, planet).front && // front exists.
-								 pBattleIndex(currPos->value->coord.x, currPos->value->coord.y, planet).owner == owner && // correct owner.
-								(!pBattleIndex(currPos->value->coord.x, currPos->value->coord.y, planet).units[0].quantity || // empty.
-								(pBattleIndex(currPos->value->coord.x, currPos->value->coord.y, planet).units[0].unit == unit && // same unit.
-								 pBattleIndex(currPos->value->coord.x, currPos->value->coord.y, planet).units[0].quantity < 255)); // valid quantity.
+							GroundBattleTile tile = pBattleIndex(currPos->value->coord.x, currPos->value->coord.y, planet);
+							return tile.front && tile.owner == owner && // front of correct owner.
+								(!tile.units[0].quantity || // empty.
+								(tile.units[0].unit == unit && tile.units[0].quantity < 255)); // same unit with valid quantity.
 
 						},
 
 						// action lambda. Creates a path.
 						[this, unit, quantity](HabitablePlanet* planet, LinkedListNode<PathCoordinate>* currPos) {
-							Direction prevDir;
 							LinkedListNode<PathCoordinate>* counter = currPos;
 
 							// Does nothing if the gValue is invalid.
 							if (currPos->value->gValue <= 0) return;
 
 							// Creates a list of Coords corresponding to the movement.
-							// coords[0].x stores the length of the path, coords[0].y stores the current index in the path.
+							// coords[0].x stores the length of the path + 2, coords[0].y stores the current index in the path.
 							Coord* coords = new Coord[(int)currPos->value->gValue + 3]();
 							coords[0].x = (uint_least8_t)currPos->value->gValue + 2; // Adds 2 for more convenient comparisons with y later.
 							coords[0].y = 2; // Starts at 2 since the first 2 indices are used for metadata.
@@ -1352,11 +1586,10 @@ void Battle::moveToFronts() {
 
 						},
 
-						// calcG lambda. gValue change is always one for each tile, unless there is an immobile unit
-						// blocking the way which does not match the ending criteria.
-						[unit, quantity, owner](HabitablePlanet* planet, int xBeg, int yBeg, int xDest, int yDest)->int {
-							return 256 * (pTileID(xDest, yDest, planet) > LAND_TILE || // Tile not on land.
-								pBattleIndex(xDest, yDest, planet).owner != owner || // Tile not owned by the unit's owner.
+						// calcG lambda. gValue change is always one for each tile, unless there are other factors.
+						[this, unit, quantity, owner](HabitablePlanet* planet, int xBeg, int yBeg, int xDest, int yDest)->int {
+							return 256 * (pBattleIndex(xDest, yDest, planet).owner != owner || // Tile not owned by the unit's owner.
+								!canOccupyTerrain(xDest, yDest, owners[owner].unitTable[unit]) || // Tile incompatible with current unit.
 								(pBattleIndex(xDest, yDest, planet).units[NUM_TILE_UNITS - 1].quantity && !pBattleIndex(xDest, yDest, planet).units[NUM_TILE_UNITS - 1].moving && // Unit in way.
 								!(pBattleIndex(xDest, yDest, planet).units[0].unit == unit && pBattleIndex(xDest, yDest, planet).front && pBattleIndex(xDest, yDest, planet).units[0].quantity < 255))) // Does not match endCondition.
 								+ 1;
@@ -1369,6 +1602,15 @@ void Battle::moveToFronts() {
 
 						}
 						);
+
+					// Marks the unit as moving if pathdinfing was successful.
+					// TODO make sure that 2 is not overwritten
+					if (pathFound) {
+						gbIndex(x, y, planet).units[NUM_TILE_UNITS - 1] = gbIndex(x, y, planet).units[i];
+						gbIndex(x, y, planet).units[i] = { 0, 0, 0 };
+						gbIndex(x, y, planet).units[NUM_TILE_UNITS - 1].moving = 1;
+
+					}
 				}
 			}
 		}
@@ -1382,10 +1624,10 @@ Reallocates units between fronts.
 // TODO use additional indices
 */
 void Battle::moveBetweenFronts() {
-	//int strengthDiffs[256];
+	//int strengthDiffs[MAX_GROUND_FRONTS];
 
 	//// Parses through each front and calculates the strength difference between it and the enemy front.
-	//for (int i = 0; i < comp.byte2; ++i) {
+	//for (int i = 0; i < comp.short1; ++i) {
 	//	if (!fronts[i].numTiles) continue;
 	//	strengthDiffs[i] = fronts[i].strength;
 
@@ -1404,8 +1646,6 @@ void Battle::moveUnits() {
 	uint_least8_t unit;
 	Coord currCoord;
 	Coord nextCoord;
-	int xPos, yPos;
-	int strength;
 	LinkedListNode<Coord>* currNode = movements.root;
 	LinkedListNode<Coord>* tempNode;
 
@@ -1508,10 +1748,10 @@ receiving front is in need of reinforcement.
 
 TODO currently transfers to any adjacent available front. Should instead tranfer to only
 the current front unless the adjacent front is higher priority
+TODO currently only transfers unit[0]. Should transfer all units.
 */
 void Battle::diffuseUnits() {
 	uint_least8_t numTransferred;
-	int strength1, strength2;
 	int maxTransfer;
 	int xPos, yPos;
 	uint_least8_t* received = requestDummy();
@@ -1532,9 +1772,11 @@ void Battle::diffuseUnits() {
 
 						// Transfers half of the difference between the two tile's unit counts if an adjacent tile has the same unit type
 						// and has less units than the current tile. Tiles cannot supply units that they have just received.
-						if (gbIndex(xPos, yPos, planet).owner == gbIndex(x, y, planet).owner && gbIndex(xPos, yPos, planet).front && // Same owner and destination on front.
+						// Tiles can also supply to empty tiles which have a viable terrain type for the transfering unit.
+						if (gbIndex(xPos, yPos, planet).owner == gbIndex(x, y, planet).owner && gbIndex(xPos, yPos, planet).front && // Same owner and front exists.
 							!gbIndex(x, y, planet).units[0].moving && !gbIndex(xPos, yPos, planet).units[0].moving && // Neither units are moving
-							(gbIndex(xPos, yPos, planet).units[0].unit == gbIndex(x, y, planet).units[0].unit || !gbIndex(xPos, yPos, planet).units[0].unit) && // Same unit or empty.
+							(gbIndex(xPos, yPos, planet).units[0].unit == gbIndex(x, y, planet).units[0].unit || // Same unit.
+								(!gbIndex(xPos, yPos, planet).units[0].unit && canOccupyTerrain(xPos, yPos, gbUnitTemplate(x, y, 0, planet)))) && // Or empty with correct type
 							gbIndex(xPos, yPos, planet).units[0].quantity < gbIndex(x, y, planet).units[0].quantity) { // Destination has lower quantity.
 
 							// Maximum number of units which this tile can transfer.
@@ -1569,8 +1811,7 @@ If there is no adjacent enemy to attack, attempts to conquer an adjacent tile.
 */
 void Battle::attackUnits() {
 	uint_least8_t attackerQuantity, defenderQuantity;
-	int attackerStrength, defenderStrength;
-	uint_least8_t tempFront;
+	uint_least16_t tempFront;
 	int xPos, yPos;
 	uint_least8_t* conquered;
 
@@ -1628,11 +1869,12 @@ void Battle::attackUnits() {
 							yPos = y + j;
 							wrapAroundPlanet(planet->size, &xPos, &yPos);
 
-							// Conquers nearby unoccupied enemy tiles.
+							// Conquers nearby unoccupied enemy tiles which the conquering unit can occupy.
 							// Note: It is assumed that units[0].unit will be 0 if and only if all enemy units in the tile
 							// have been destroyed.
-							if (comp.comp(gbIndex(x, y, planet).owner, gbIndex(xPos, yPos, planet).owner) &&
-								!conquered[index(xPos, yPos, planet->size)] && !gbIndex(xPos, yPos, planet).units[0].unit) {
+							if (!conquered[index(xPos, yPos, planet->size)] && !gbIndex(xPos, yPos, planet).units[0].unit &&
+								/*canOccupyTerrain(xPos, yPos, gbUnitTemplate(x, y, 0, planet)) &&*/
+								comp.comp(gbIndex(x, y, planet).owner, gbIndex(xPos, yPos, planet).owner)) {
 
 								// Marks the tile as conquered so it will not flutter.
 								conquered[index(xPos, yPos, planet->size)] = 1;
@@ -1687,18 +1929,6 @@ void Battle::navalInvade() {
 				quantity = gbIndex(x, y, planet).units[NUM_TILE_UNITS - 1].quantity;
 				owner = gbIndex(x, y, planet).owner;
 
-				// TODO DEBUG REMOVE
-				// TODO remove extern changeActiveSystem
-				static int feotus = 0;
-				if (!feotus) {
-					changeActiveSystem(uSystem(planet->location.x, planet->location.y));
-					changeActiveHabitable(planet);
-					gameSpeed = 0;
-					printf("%d, %d\n", x, y);
-
-				}
-				feotus = 1;
-
 				// Creates a path for the unit.
 				planet->planetPathfind(x, y, planet->size / 2,
 
@@ -1712,7 +1942,6 @@ void Battle::navalInvade() {
 
 					// action lambda. Creates a path.
 					[this, unit, quantity](HabitablePlanet* planet, LinkedListNode<PathCoordinate>* currPos) {
-						Direction prevDir;
 						LinkedListNode<PathCoordinate>* counter = currPos;
 
 						// Does nothing if the gValue is invalid.
@@ -1741,7 +1970,8 @@ void Battle::navalInvade() {
 
 					// calcG lambda. gValue change is always one for each tile, unless the end criteria are reached.
 					[unit, quantity, owner, this](HabitablePlanet* planet, int xBeg, int yBeg, int xDest, int yDest)->int {
-						return 256 * (pTileID(xDest, yDest, planet) <= LAND_TILE || // Tile not a sea tile.
+						return 256 * (gbIndex(xDest, yDest, planet).owner != owner || // Tile is not owned by this owner.
+							!canOccupyTerrain(xDest, yDest, owners[owner].unitTable[unit]) || // Tile incompatible with current unit.
 							(gbIndex(xDest, yDest, planet).units[NUM_TILE_UNITS - 1].quantity && !gbIndex(xDest, yDest, planet).units[NUM_TILE_UNITS - 1].moving && // Unit in way.
 								!(pBuilding(xDest, yDest, planet) >= Harbour1 && pBuilding(xDest, yDest, planet) <= Harbour5 && comp.comp(owner, gbIndex(xDest, yDest, planet).owner)))) // Does not match endCondition.
 							+ 1;
@@ -1764,24 +1994,24 @@ Calculates and assigns front strength.
 */
 void Battle::calcFrontStrength() {
 	int xPos, yPos;
-	uint_least32_t strengths[256];
-	uint_least32_t enemyStrengths[256];
-	memset(strengths, 0, sizeof(strengths));
-	memset(enemyStrengths, 0, sizeof(enemyStrengths));
+	uint_least32_t strengths[MAX_GROUND_FRONTS];
+	uint_least32_t enemyStrengths[MAX_GROUND_FRONTS];
+	memset(strengths, 0, sizeof(strengths[0]) * MAX_GROUND_FRONTS);
+	memset(enemyStrengths, 0, sizeof(enemyStrengths[0]) * MAX_GROUND_FRONTS);
 	uint_least8_t* dummy;
 
-	// Get dummy.
+	// Gets dummy, an array of bitarrays used to track adjacency for fronts.
 	dummy = requestLargeDummy();
-	memset(dummy, 0, (long int)planet->size * (long int)planet->size * 32);
+	memset(dummy, 0, planet->size * planet->size * 64);
 
-	// Find strengths.
+	// Finds strengths.
 	for (int i = 0; i < planet->size * planet->size; ++i) if (battlefield[i].owner) strengths[battlefield[i].front] += groundUnitTileStrength(battlefield[i]);
 
 	// Checks every tile.
 	for (int i = 0; i < planet->size; ++i) {
 		for (int j = 0; j < planet->size; ++j) {
 
-			// Gets enemy strength.
+			// Gets enemy strengths.
 			if (gbIndex(i, j, planet).front) {
 				for (int x = -1; x < 2; ++x) {
 					for (int y = -1; y < 2; ++y) {
@@ -1790,10 +2020,10 @@ void Battle::calcFrontStrength() {
 						yPos = j + y;
 						wrapAroundPlanet(planet->size, &xPos, &yPos);
 
-						// If at war and not already counted, adds enemyStrength. 
-						if (comp.comp(gbIndex(i, j, planet).owner, gbIndex(xPos, yPos, planet).owner) && !readArrBit(&dummy[index(xPos, yPos, planet->size) * 32], gbIndex(i, j, planet).front)) {
+						// If at war and not already counted, adds enemyStrength.
+						if (comp.comp(gbIndex(i, j, planet).owner, gbIndex(xPos, yPos, planet).owner) && !readArrBit(&dummy[index(xPos, yPos, planet->size) * 64], gbIndex(i, j, planet).front)) {
 							enemyStrengths[gbIndex(i, j, planet).front] += groundUnitTileStrength(gbIndex(xPos, yPos, planet));
-							writeArrBit(&dummy[index(xPos, yPos, planet->size) * 32], gbIndex(i, j, planet).front, 1);
+							writeArrBit(&dummy[index(xPos, yPos, planet->size) * 64], gbIndex(i, j, planet).front, 1);
 
 						}
 					}
@@ -1806,12 +2036,13 @@ void Battle::calcFrontStrength() {
 	releaseLargeDummy(dummy);
 
 	// Assigns the strengths.
-	for (int i = 0; i < comp.byte2; ++i) {
+	for (int i = 0; i < comp.short1; ++i) {
 		fronts[i].strength = strengths[i];
 		fronts[i].enemyStrength = enemyStrengths[i];
 
 	}
 }
 
-// gbIndex is not useful outside of Battles.
+// gbIndex and gbUnitTemplate are not useful outside of Battles.
 #undef gbIndex
+#undef gbUnitTemplate

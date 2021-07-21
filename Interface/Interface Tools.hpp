@@ -215,14 +215,6 @@ bool initTextures() {
 Checks to see if a coordinate is within the bounds of the inputed SDL_Rect.
 */
 bool withinBounds(int xPos, int yPos, SDL_Rect bounds) {
-
-	// Returns true if the mouse is within the bounds of the SDL_Rect.
-	if (xPos >= bounds.x && yPos >= bounds.y && xPos <= bounds.x + bounds.w && yPos <= bounds.y + bounds.h) {
-		return true;
-
-	}
-
-	// Returns true if the mouse is not within the bounds of the SDL_Rect.
-	return false;
+	return xPos >= bounds.x && yPos >= bounds.y && xPos <= bounds.x + bounds.w && yPos <= bounds.y + bounds.h;
 
 }

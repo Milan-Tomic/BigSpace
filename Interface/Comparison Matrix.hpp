@@ -21,11 +21,10 @@ public:
 	int numRows;
 
 	// These four bytes would be wasted if not used here.
-	// byte1 and byte2 are used by Battle to store numFronts and numOwners.
+	// short1 is used for numFronts, byte1 is used for numOwners.
+	uint_least16_t short1;
 	uint_least8_t byte1;
 	uint_least8_t byte2;
-	uint_least8_t byte3;
-	uint_least8_t byte4;
 
 	// Constructor for the comparison matrix.
 	void init(int numValues);

@@ -64,8 +64,7 @@ void initGovernments(int numGovernments) {
 	// Initializes governmentPages.
 	numGovernmentPages = numGovernments / GOVERNMENT_PAGE_SIZE + 1;
 	governmentPages = (GovernmentPage**)calloc(numGovernmentPages + NUM_GOVERNMENT_PAGES - (numGovernmentPages % NUM_GOVERNMENT_PAGES), sizeof(GovernmentPage*));
-	for (int i = 0; i < numGovernmentPages; ++i)
-		governmentPages[i] = (GovernmentPage*)calloc(1, sizeof(GovernmentPage));
+	for (int i = 0; i < numGovernmentPages; ++i) governmentPages[i] = (GovernmentPage*)calloc(1, sizeof(GovernmentPage));
 
 }
 
@@ -73,10 +72,10 @@ void initGovernments(int numGovernments) {
 Places a Government.
 */
 Government* placeGovernment() {
-	static std::mutex placeGovernmentMutex;
+	static std::shared_mutex placeGovernmentMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(placeGovernmentMutex);
+	const std::lock_guard<std::shared_mutex> lock(placeGovernmentMutex);
 
 	// Attempts to place the government within one of the current pages.
 	Government* government = nullptr;
@@ -119,12 +118,12 @@ Requests a GovernmentPage. Returns the index of the next available page in gover
 TODO if infrastructure permits it, use a static global to increment through government pages.
 */
 int requestGovernmentPage() {
-	static std::mutex requestGovernmentPageMutex;
+	static std::shared_mutex requestGovernmentPageMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(requestGovernmentPageMutex);
+	const std::lock_guard<std::shared_mutex> lock(requestGovernmentPageMutex);
 
-	// Parses through each galaxy and returns the next available one.
+	// Parses through each Government and returns the next available one.
 	for (int i = 0; i < numGovernmentPages; ++i) {
 		if (!governmentPages[i]->active) {
 			governmentPages[i]->active = true;
@@ -141,13 +140,13 @@ int requestGovernmentPage() {
 /*
 Returns a GovernmentPage.
 */
-void returnGovernmentPage(int index) {
+void releaseGovernmentPage(int index) {
 	governmentPages[index]->active = false;
 
 }
 
 // Returns all GovernmentPages.
-void returnAllGovernmentPages() {
+void releaseAllGovernmentPages() {
 	for (int i = 0; i < numGovernmentPages; ++i) governmentPages[i]->active = false;
 
 }
@@ -282,7 +281,7 @@ void Government::addClosure(uint_least16_t closure) {
 
 	// Assigns the closure to the Government.
 	closures[numClosures] = closure;
-	allClosures[closure].owner = this;
+	indexClosure(closure).owner = this;
 	++numClosures;
 
 }
@@ -333,8 +332,8 @@ void Government::findSpace() {
 	for (int c = 0; c < numClosures; ++c) {
 
 		// Finds the starting coordinates of the current closure.
-		xPos = allClosures[closures[c]].start.x;
-		yPos = allClosures[closures[c]].start.y;
+		xPos = indexClosure(closures[c]).start.x;
+		yPos = indexClosure(closures[c]).start.y;
 
 		// Will not expand in this closure if its Galaxy has no available space.
 		if (!findGalaxy(xPos, yPos)->unowned) continue;
@@ -359,7 +358,7 @@ void Government::findSpace() {
 			if (uIndex(coord.x, coord.y).tileID == THIN_SPACE_TILE) continue;
 
 			// Adds the tile to expansions if it is unowned.
-			if (!uOwner(coord.x, coord.y)) {
+			if (!uController(coord.x, coord.y)) {
 				expansions[currIndex++] = { coord.x, coord.y };
 				continue;
 
@@ -371,7 +370,7 @@ void Government::findSpace() {
 			explored[index(coord.x, coord.y, universeWidth)] = 1;
 
 			// Does nothing if the tile is owned by another Government.
-			if (uOwner(coord.x, coord.y) != this) continue;
+			if (uController(coord.x, coord.y) != this) continue;
 
 			// Adds the adjacent tiles to the queue if it the tile is owned by this government.
 			for (int x = -1; x < 2; ++x) {
@@ -467,14 +466,15 @@ void OrcGroundExpand(Government* tribe) {
 		// Should not concurrently access planet data.
 		mutex->lock();
 
-		// Does nothing if there is no remaining land.
-		if (!pOwnerBuildingQ(0, LAND_OWNED, currPlanet, 0) && !pOwnerBuildingQ(0, LAND_OWNED, currPlanet, 1)) {
+		// Does nothing if there is no remaining land or water.
+		if (!pOwnerBuildingQ(0, LAND_OWNED, currPlanet, 0) && !pOwnerBuildingQ(0, LAND_OWNED, currPlanet, 1) &&
+			!pOwnerBuildingQ(0, LAND_OWNED, currPlanet, 2)) {
 			mutex->unlock();
 			continue;
 
 		}
 
-		// Will add at most four adjacent tile to the Orcish tribe. Each addition costs BaseMetals.
+		// Will add at most four adjacent Land tiles to the Orcish tribe. Each addition costs BaseMetals.
 		for (int numAdded = 0; numAdded < 4 && colony->market->goods[BaseMetals].quantity > 10 && !!(coord = colony->requestLand()) &&
 			!pIndex(coord.x, coord.y, currPlanet).owner; ++numAdded) {
 
@@ -546,6 +546,21 @@ void OrcGroundExpand(Government* tribe) {
 				colony->market->goods[BaseMetals].quantity -= 2;
 
 			}
+		}
+
+		// Will add at most four adjacent Land tiles to the Orcish tribe. Each addition costs 1 BaseMetals.
+		for (int numAdded = 0; numAdded < 4 && colony->market->goods[BaseMetals].quantity > 10 && !!(coord = colony->requestWater()) &&
+			!pIndex(coord.x, coord.y, currPlanet).owner; ++numAdded) {
+
+			// Extends the fronts associated with the tile.
+			if (colony->planet->battle) colony->planet->battle->extendFronts(coord.x, coord.y, colony);
+
+			// Transfers ownership of the tile.
+			buildingFuncs[NoBuilding](currPlanet, colony->market, colony->governmentOwner, coord.x, coord.y, nullptr);
+
+			// Spends 1 BaseMetals.
+			colony->market->goods[BaseMetals].quantity -= 1;
+
 		}
 
 		// If this colony has not got any available tiles to expand but there are still unnocupied tiles,
@@ -719,20 +734,38 @@ void OrcReinforce(Government* tribe) {
 
 		}
 
-		// Determines the amount of units that can be bought.
-		numReinforcements = colony->market->goods[BaseMetals].quantity < colony->market->foods[0].vegQuantity + colony->market->foods[0].meatQuantity
+		// Determines the amount of ships that can be bought.
+		numReinforcements = colony->market->goods[BaseMetals].quantity * 4 < colony->market->foods[0].vegQuantity + colony->market->foods[0].meatQuantity
 			? colony->market->goods[BaseMetals].quantity : colony->market->foods[0].vegQuantity + colony->market->foods[0].meatQuantity;
 
-		// Spends resources to create units.
-		colony->market->goods[BaseMetals].quantity -= numReinforcements;
+		// Buys only one sixteenth as many ships as can be bought.
+		numReinforcements /= 16;
 
-		// Splits food spending between meat and veg.
+		// Reinforces the battle with ships.
+		numReinforcements -= battle->reinforce(colony, numReinforcements, 3);
+
+		// Spends resources to create ships.
+		colony->market->goods[BaseMetals].quantity -= numReinforcements * 4;
+
+		// Spends meat and veg to create ships.
 		vegUsed = numReinforcements < colony->market->foods[0].vegQuantity ? numReinforcements : colony->market->foods[0].vegQuantity;
 		colony->market->foods[0].vegQuantity -= vegUsed;
 		colony->market->foods[0].meatQuantity -= numReinforcements - vegUsed;
 
-		// Reinforces the battle.
-		battle->reinforce(colony, numReinforcements, 1);
+		// Determines the amount of leg infantry that can be bought.
+		numReinforcements = colony->market->goods[BaseMetals].quantity < colony->market->foods[0].vegQuantity + colony->market->foods[0].meatQuantity
+			? colony->market->goods[BaseMetals].quantity : colony->market->foods[0].vegQuantity + colony->market->foods[0].meatQuantity;
+
+		// Reinforces the battle with leg infantry.
+		numReinforcements -= battle->reinforce(colony, numReinforcements, 1);
+
+		// Spends resources to create leg infantry.
+		colony->market->goods[BaseMetals].quantity -= numReinforcements;
+
+		// Spends meat and veg to create leg infantry.
+		vegUsed = numReinforcements < colony->market->foods[0].vegQuantity ? numReinforcements : colony->market->foods[0].vegQuantity;
+		colony->market->foods[0].vegQuantity -= vegUsed;
+		colony->market->foods[0].meatQuantity -= numReinforcements - vegUsed;
 
 		// Unlocks the planet's mutex.
 		mutex->unlock();
@@ -807,7 +840,7 @@ void OrcCapitulate(Government* tribe) {
 		// If one tribe remains, finishes the Battle and allows the tribe to enter space.
 		if (num == 1) {
 			delete battle;
-			changeUniverseOwner(planet->location, gov);
+			changeUniverseOwner(planet->loc, gov);
 
 		}
 
@@ -825,37 +858,38 @@ Manages shipbuilding for an Orcish tribe.
 */
 void OrcShipbuilding(Government* tribe) {
 	Colony* colony;
+	Squadron* squadron;
 	HabitablePlanet* planet;
 	GalaxyTile* tile = nullptr;
 	std::shared_mutex* mutex;
+	CoordU loc;
 
 	// Manages shipbuilding on all Colonies.
 	for (int col = 0; col < tribe->numColonies; ++col) {
 		colony = tribe->colonies[col];
 		planet = colony->planet;
 		mutex = &planet->mutex;
+		loc = planet->loc;
+
+		// Will perform no action if there is an ongoing Battle.
+		if (planet->battle) continue;
 
 		// Should not concurrently access planet data.
 		mutex->lock();
 
-		// Will perform no action if there is an ongoing Battle.
-		if (planet->battle) {
-			mutex->unlock();
-			continue;
-
-		}
-
 		// Places ships in the tile if it is owned by the tribe.
-		if (uOwner(planet->location.x, planet->location.y) == tribe) {
-			tile = &uIndex(planet->location.x, planet->location.y);
+		if (uController(loc.x, loc.y) == tribe) {
+			tile = &uIndex(loc.x, loc.y);
 
-			// Places a Ship in an existing Fleet if one exists.
-			if (tile->fleets && tile->fleets[0]) ++tile->fleets[0]->ships[0].num;
-			// Places a Ship in a new Fleet if no Fleet exists.
+			// Places a Ship in an existing owned Squadron if one exists.
+			if (squadron = universeContainsOwnedSquadron(loc.x, loc.y, tribe)) {
+				squadron->addShip(&tribe->shipTable[0], 1);
+
+			}
+			// Places a Ship in a new Squadron if no Squadron exists.
 			else {
-				Fleet* fleet = (Fleet*)calloc(1, sizeof(Fleet));
-				fleet->addShip(&tribe->shipTable[0], 1);
-				tile->addFleet(fleet);
+				Squadron* squadron = new Squadron(tribe, squadronGuard, planet->loc);
+				squadron->addShip(&tribe->shipTable[0], 1);
 
 			}
 		}
@@ -874,7 +908,7 @@ void OrcSpaceExpand(Government* tribe) {
 	int inc = 0;
 
 	// Expands to a handful of tiles.
-	while (!!(coord = tribe->requestSpace()) && !uOwner(coord.x, coord.y) && inc++ < 8 && !randB(3)) {
+	while (!!(coord = tribe->requestSpace()) && !uController(coord.x, coord.y) && inc++ < 8 && !randB(3)) {
 		changeUniverseOwner(coord.x, coord.y, tribe);
 
 	}

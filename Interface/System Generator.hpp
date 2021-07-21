@@ -53,6 +53,10 @@ NOTE: The inputed array references are included to reduce processor usage by the
 void generateSystem(System* system, int** dummyPlanet, int** moistureDummy,
 	int** heatDummy, int** riverDummy, int** buildingDummy, int** canvas) {
 
+	// Initializes tradeLanes for the system.
+	// TODO change max tradeLane length.
+	system->initTradeLanes(7);
+
 	// Generates 1-4 stars.
 	int numStars = randB(7);
 	if (numStars <= 103) numStars = 1; // 80%
@@ -224,7 +228,6 @@ void generateHabitablePlanets(System* system,
 	int** dummyPlanet, int** moistureDummy, int** heatDummy, int** riverDummy, int** buildingDummy, int** canvas,
 	int planetDistances[200]) {
 	int distance;
-	int planetTemperature;
 	int lowerBound = 0;
 	int upperBound = 0;
 	bool foundSpot;

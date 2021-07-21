@@ -2,8 +2,6 @@
 
 /*
 Manages battles for a page of planets.
-
-TODO contemplate different parsing
 */
 void planetBattle() {
 	int page;
@@ -19,7 +17,7 @@ void planetBattle() {
 }
 
 /*
-TODO
+Performs Battles on every planet containing a Battle.
 */
 void groundBattles() {
 	planetBattle();

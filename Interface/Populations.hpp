@@ -140,10 +140,10 @@ Places a RaceTemplate. Generates a new RacePage if there are none available.
 Resizes racePages in increments of 256 when the object pool is insufficiently large.
 */
 RaceTemplate* placeRace() {
-	static std::mutex placeRaceMutex;
+	static std::shared_mutex placeRaceMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(placeRaceMutex);
+	const std::lock_guard<std::shared_mutex> lock(placeRaceMutex);
 
 	// Attempts to place the RaceTemplate within one of the current pages.
 	RaceTemplate* race = nullptr;

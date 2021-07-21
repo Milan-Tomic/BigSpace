@@ -29,12 +29,14 @@ void initNullBuilding(HabitablePlanet* planet, Market* market, int owner, int xP
 	// Places the Land in the owner's control.
 	poIndex(xPos, yPos, planet) = owner;
 
-	// Gives the owner a Land tile.
-	++planet->owners[owner].ownedBuildings[LAND_OWNED].numBuildings[0];
+	// Gives the owner a Land or Water tile.
+	if (pIsLand(xPos, yPos, planet)) ++pOwnerBuildingQ(owner, LAND_OWNED, planet, 0);
+	else ++pOwnerBuildingQ(owner, LAND_OWNED, planet, 2);
 
 }
 void destroyNullBuilding(HabitablePlanet* planet, Market* market, int owner, int xPos, int yPos, void* extraData) {
-	--planet->owners[owner].ownedBuildings[LAND_OWNED].numBuildings[0];
+	if (pIsLand(xPos, yPos, planet)) --pOwnerBuildingQ(owner, LAND_OWNED, planet, 0);
+	else --pOwnerBuildingQ(owner, LAND_OWNED, planet, 2);
 
 }
 
@@ -50,14 +52,14 @@ void initBorealForest(HabitablePlanet* planet, Market* market, int owner, int xP
 	++planet->netGases[Oxygen];
 	--planet->netGases[Pollutants];
 	pBuilding(xPos, yPos, planet) = BorealForest;
-	++planet->owners[owner].ownedBuildings[LAND_OWNED].numBuildings[1];
+	++pOwnerBuildingQ(owner, LAND_OWNED, planet, 1);
 
 }
 void destroyBorealForest(HabitablePlanet* planet, Market* market, int owner, int xPos, int yPos, void* extraData) {
 	--planet->netGases[Oxygen];
 	++planet->netGases[Pollutants];
 	pBuilding(xPos, yPos, planet) = NoBuilding;
-	--planet->owners[owner].ownedBuildings[LAND_OWNED].numBuildings[1];
+	--pOwnerBuildingQ(owner, LAND_OWNED, planet, 1);
 
 }
 
@@ -73,14 +75,14 @@ void initDeciduousForest(HabitablePlanet* planet, Market* market, int owner, int
 	++planet->netGases[Oxygen];
 	--planet->netGases[Pollutants];
 	pBuilding(xPos, yPos, planet) = DeciduousForest;
-	++planet->owners[owner].ownedBuildings[LAND_OWNED].numBuildings[1];
+	++pOwnerBuildingQ(owner, LAND_OWNED, planet, 1);
 
 }
 void destroyDeciduousForest(HabitablePlanet* planet, Market* market, int owner, int xPos, int yPos, void* extraData) {
 	--planet->netGases[Oxygen];
 	++planet->netGases[Pollutants];
 	pBuilding(xPos, yPos, planet) = NoBuilding;
-	--planet->owners[owner].ownedBuildings[LAND_OWNED].numBuildings[1];
+	--pOwnerBuildingQ(owner, LAND_OWNED, planet, 1);
 
 }
 
@@ -96,14 +98,14 @@ void initTemperateForest(HabitablePlanet* planet, Market* market, int owner, int
 	++planet->netGases[Oxygen];
 	--planet->netGases[Pollutants];
 	pBuilding(xPos, yPos, planet) = TemperateForest;
-	++planet->owners[owner].ownedBuildings[LAND_OWNED].numBuildings[1];
+	++pOwnerBuildingQ(owner, LAND_OWNED, planet, 1);
 
 }
 void destroyTemperateForest(HabitablePlanet* planet, Market* market, int owner, int xPos, int yPos, void* extraData) {
 	--planet->netGases[Oxygen];
 	++planet->netGases[Pollutants];
 	pBuilding(xPos, yPos, planet) = NoBuilding;
-	--planet->owners[owner].ownedBuildings[LAND_OWNED].numBuildings[1];
+	--pOwnerBuildingQ(owner, LAND_OWNED, planet, 1);
 
 }
 
@@ -119,14 +121,14 @@ void initAridForest(HabitablePlanet* planet, Market* market, int owner, int xPos
 	++planet->netGases[Oxygen];
 	--planet->netGases[Pollutants];
 	pBuilding(xPos, yPos, planet) = AridForest;
-	++planet->owners[owner].ownedBuildings[LAND_OWNED].numBuildings[1];
+	++pOwnerBuildingQ(owner, LAND_OWNED, planet, 1);
 
 }
 void destroyAridForest(HabitablePlanet* planet, Market* market, int owner, int xPos, int yPos, void* extraData) {
 	--planet->netGases[Oxygen];
 	++planet->netGases[Pollutants];
 	pBuilding(xPos, yPos, planet) = NoBuilding;
-	--planet->owners[owner].ownedBuildings[LAND_OWNED].numBuildings[1];
+	--pOwnerBuildingQ(owner, LAND_OWNED, planet, 1);
 
 }
 
@@ -142,21 +144,22 @@ void initTropicalForest(HabitablePlanet* planet, Market* market, int owner, int 
 	++planet->netGases[Oxygen];
 	--planet->netGases[Pollutants];
 	pBuilding(xPos, yPos, planet) = TropicalForest;
-	++planet->owners[owner].ownedBuildings[LAND_OWNED].numBuildings[1];
+	++pOwnerBuildingQ(owner, LAND_OWNED, planet, 1);
 
 }
 void destroyTropicalForest(HabitablePlanet* planet, Market* market, int owner, int xPos, int yPos, void* extraData) {
 	--planet->netGases[Oxygen];
 	++planet->netGases[Pollutants];
 	pBuilding(xPos, yPos, planet) = NoBuilding;
-	--planet->owners[owner].ownedBuildings[LAND_OWNED].numBuildings[1];
+	--pOwnerBuildingQ(owner, LAND_OWNED, planet, 1);
 
 }
 
 /*
 Places and destroys level one Harbours.
 
-Directions for harbours are EAST, SOUTH, WEST, NORTH.
+Directions for harbours are EAST, SOUTH, WEST, NORTH. These indicate the direction from the City/Land.
+EAST = 1 to optimize the rotation calculation.
 
 TODO add building manifest for harbours?
 TODO inherit direction from previous harbours?
@@ -170,22 +173,21 @@ void initHarbour1(HabitablePlanet* planet, Market* market, int owner, int xPos, 
 	// Demolishes whatever was there prior.
 	deconstructingFuncs[pBuilding(xPos, yPos, planet)](planet, market, poIndex(xPos, yPos, planet), xPos, yPos, nullptr);
 
-	// Places the level one Harbour.
-	pBuilding(xPos, yPos, planet) = Harbour1;
-
-	// Places the level one Harbour in the owner's control.
-	poIndex(xPos, yPos, planet) = owner;
-
 	// Assigns the inputed Harbour position if it is included in extraData.
 	if (extraData != nullptr) {
 		city = (char)extraData;
 
 	}
+	// Retains the previous Harbour position if there is already a Harbour in the inputed tile.
+	else if (pBuilding(xPos, yPos, planet) >= Harbour1 && pBuilding(xPos, yPos, planet) <= Harbour5) {
+		goto placement;
+
+	}
 	// Attempts to find a place for the Harbour.
 	else {
 
-		// Attempts to find a city to the east of the Harbour.
-		x = xPos + 1;
+		// Attempts to find a city to the west of the Harbour.
+		x = xPos - 1;
 		y = yPos;
 		wrapAroundPlanet(planet->size, &x, &y);
 		if (pBuilding(x, y, planet) == OrcCity || (pBuilding(x, y, planet) >= City1 && pBuilding(x, y, planet) <= City5)) {
@@ -196,9 +198,9 @@ void initHarbour1(HabitablePlanet* planet, Market* market, int owner, int xPos, 
 		// Attempts to find Land to the east of the Harbour.
 		else if (pTileID(x, y, planet) <= LAND_TILE) land = 1;
 
-		// Attempts to find a city south of the Harbour.
+		// Attempts to find a city to the north of the Harbour.
 		x = xPos;
-		y = yPos + 1;
+		y = yPos - 1;
 		wrapAroundPlanet(planet->size, &x, &y);
 		if (pBuilding(x, y, planet) == OrcCity || (pBuilding(x, y, planet) >= City1 && pBuilding(x, y, planet) <= City5)) {
 			city = 2;
@@ -208,8 +210,8 @@ void initHarbour1(HabitablePlanet* planet, Market* market, int owner, int xPos, 
 		// Attempts to find Land to the south of the Harbour.
 		else if (pTileID(x, y, planet) <= LAND_TILE) land = 2;
 
-		// Attempts to find a city to the west of the Harbour.
-		x = xPos - 1;
+		// Attempts to find a city to the east of the Harbour.
+		x = xPos + 1;
 		y = yPos;
 		wrapAroundPlanet(planet->size, &x, &y);
 		if (pBuilding(x, y, planet) == OrcCity || (pBuilding(x, y, planet) >= City1 && pBuilding(x, y, planet) <= City5)) {
@@ -220,9 +222,9 @@ void initHarbour1(HabitablePlanet* planet, Market* market, int owner, int xPos, 
 		// Attempts to find Land to the west of the Harbour.
 		else if (pTileID(x, y, planet) <= LAND_TILE) land = 3;
 
-		// Attempts to find a city north of the Harbour.
+		// Attempts to find a city to the south of the Harbour.
 		x = xPos;
-		y = yPos - 1;
+		y = yPos + 1;
 		wrapAroundPlanet(planet->size, &x, &y);
 		if (pBuilding(x, y, planet) == OrcCity || (pBuilding(x, y, planet) >= City1 && pBuilding(x, y, planet) <= City5)) {
 			city = 4;
@@ -234,13 +236,22 @@ void initHarbour1(HabitablePlanet* planet, Market* market, int owner, int xPos, 
 
 	}
 
-	// Places the Harbour.
-	placement:;
+	// Places the Harbour's direction.
+	placeDir:;
 
 	// Place Harbour's direction away from any nearby city.
 	if (city != -1) pIndex(xPos, yPos, planet).numData = city - 1;
 	// Places the Harbour's direction away from any nearby land.
 	else pIndex(xPos, yPos, planet).numData = land - 1;
+
+	// Places the Harbour.
+	placement:;
+
+	// Places the level one Harbour.
+	pBuilding(xPos, yPos, planet) = Harbour1;
+
+	// Places the level one Harbour in the owner's control.
+	poIndex(xPos, yPos, planet) = owner;
 
 }
 void destroyHarbour1(HabitablePlanet* planet, Market* market, int owner, int xPos, int yPos, void* extraData) {

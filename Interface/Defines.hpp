@@ -3,20 +3,45 @@
 // Macro for accessing a universe tile.
 #define uIndex(x, y) universe[index(x, y, universeWidth)]
 
-// Macro for accessing a universe tile's closure.
-#define uClosure(x, y) allClosures[universe[index(x, y, universeWidth)].closure]
+// Macros for and unlocking universe tiles.
+// y is a parameter for extensibility.
+#define uLock(x, y) universeMutexes[x].lock()
+#define uUnlock(x, y) universeMutexes[x].unlock()
+#define uTryLock(x, y) universeMutexes[x].try_lock()
 
-// Macro for accessing a unvierse tile's owner.
-#define uOwner(x, y) allClosures[universe[index(x, y, universeWidth)].closure].owner
+// Macro for accessing a closure.
+#define indexClosure(closure) closurePages[closure / CLOSURE_PAGE_SIZE]->closures[closure % CLOSURE_PAGE_SIZE]
+#define indexClosurePage(closure) closurePages[closure / CLOSURE_PAGE_SIZE]
+
+// Macro for accessing a universe tile's closure.
+#define uClosure(x, y) indexClosure(uIndex(x, y).closure)
+
+// Macro for accessing a universe tile's controller.
+#define uController(x, y) uClosure(x, y).owner
+
+// Macro for accessing a universe tile's de-jure owner.
+#define uOwner(x, y) uIndex(x, y).owner
 
 // Macro for accessing a universe tile's system.
 #define uSystem(x, y) (universe[index(x, y, universeWidth)].system)
+
+// Macro for accessing a universe tile's squadron.
+#define uSquadron(x, y, squadron) universe[index(x, y, universeWidth)].squadrons[squadron]
+
+// Macro for accessing a universe tile's sensor cost.
+#define uSensorCost(x, y) uIndex(x, y).sensorCost()
+
+// Macro for accessing a universe tile's movement cost.
+#define uMovementCost(x, y) uIndex(x, y).movementCost()
 
 // Macro for accessing a planet tile.
 #define pIndex(x, y, plan) plan->planet[index(x, y, plan->size)]
 
 // Macro for accessing a PlanetTile tileData.
 #define pTileID(x, y, plan) plan->planet[index(x, y, plan->size)].tileData
+
+// Macro for determining if a PlanetTile is a LAND_TILE
+#define pIsLand(x, y, plan) (plan->planet[index(x, y, plan->size)].tileData <= LAND_TILE)
 
 // Macro for accessing a planet tile's buildingID.
 #define pBuilding(x, y, plan) plan->planet[index(x, y, plan->size)].buildingID

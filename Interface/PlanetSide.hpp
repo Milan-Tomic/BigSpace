@@ -4,15 +4,16 @@
 SDL_Rect getDepositSprite(int good);
 
 /*
-Notes:
+Notes (Outdated):
 
 Each planet's race instance will store:
 	A count of how many pops of said race are employed in certain jobs (industry, agriculture, etc.).
+		is this true?
 	Counts of pops aligned to certain political, ethical, religious factions.
 
 Each race's 'character sheet' will store:
 	That races productivity in certain fields.
-	Inntate racial qualities (innate ethical splits?).
+	Innate racial qualities (innate ethical splits?).
 
 When a pop is created, it checks to see if there is another pop on the planet that it can outcompete.
 	When such a pop is found, then and only then begin reallocation.
@@ -21,8 +22,8 @@ This avoids having to store the number of pops and their types in an industry
 
 The planet will store:
 	A list of underfilled industries.
-	The planet will store a list of underfilled habitations.
-	The planet will store a list of unhoused/unemployed pops.
+	A list of underfilled habitations.
+	A list of unhoused/unemployed pops.
 
 When a pop looks for housing, it will look at the list of underfilled habitations vs. the list of underfilled industries.
 	When genocide/resettlement, infer position from planet data.
@@ -43,6 +44,7 @@ struct ManifestRace {
 
 };
 
+// Number of levels for any given building.
 #define NUM_BUILDING_LEVELS 5
 
 // Stores bulding types within the Owner array.
@@ -65,7 +67,7 @@ struct BuildingManifest {
 	// TODO decide if removal is necessary. Capital, human capital, and race traits
 	// dictate productivity and numOpen is as reliable as numBuildings.
 	// This may be useful for bookeeping, but that can be done ad-hoc.
-	// Note: For Land, 0 is land, 1 is forest.
+	// Note: For Land, 0 is land, 1 is forest, 2 is water.
 	uint_least16_t numBuildings[NUM_BUILDING_LEVELS];
 
 	// Number of unfilled worker positions for these buildings.

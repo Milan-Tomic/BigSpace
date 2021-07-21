@@ -1065,10 +1065,10 @@ void saveBattles(std::ofstream* saveFile) {
 						}
 
 						// Saves the number of GroundFronts for this Battle.
-						battles.append((char*)&battle->comp.byte2, sizeof(battle->comp.byte2));
+						battles.append((char*)&battle->comp.short1, sizeof(battle->comp.short1));
 						
 						// Saves the Battle's GroundFronts.
-						battles.append((char*)battle->fronts, battle->comp.byte2 * sizeof(GroundFront));
+						battles.append((char*)battle->fronts, battle->comp.short1 * sizeof(GroundFront));
 
 						// Saves the size of the Battle's comp.
 						battles.append((char*)&battle->comp.numRows, sizeof(battle->comp.numRows));
@@ -1905,11 +1905,11 @@ void loadBattles(std::ifstream* saveFile) {
 						}
 
 						// Loads the number of GroundFronts for this Battle.
-						saveFile->read((char*)&battle->comp.byte2, sizeof(battle->comp.byte2));
-						battle->fronts = new GroundFront[battle->comp.byte2];
+						saveFile->read((char*)&battle->comp.short1, sizeof(battle->comp.short1));
+						battle->fronts = new GroundFront[battle->comp.short1];
 
 						// Loads the Battle's GroundFronts.
-						saveFile->read((char*)battle->fronts, battle->comp.byte2 * sizeof(GroundFront));
+						saveFile->read((char*)battle->fronts, battle->comp.short1 * sizeof(GroundFront));
 
 						// Loads the size of the Battle's comp.
 						saveFile->read((char*)&buff, sizeof(buff));

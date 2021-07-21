@@ -149,7 +149,7 @@ ButtonCode newGameStart() {
 	CodeButton* newGameButtons[NUM_NEW_GAME_BUTTONS];
 	newGameButtons[0] = new CodeButton(150, 86, 200, 40, 80, 80, 80, NEW_GAME_GALAXIES, "Universe");
 	newGameButtons[1] = new CodeButton(150, 172, 200, 40, 80, 80, 80, NEW_GAME_ADVANCED, "Advanced");
-	newGameButtons[2] = new CodeButton(150, 258, 200, 40, 80, 80, 80, NEW_GAME_GENERATE, "Generate Galaxy");
+	newGameButtons[2] = new CodeButton(150, 258, 200, 40, 80, 80, 80, NEW_GAME_GENERATE, "Generate Universe");
 	newGameButtons[3] = new CodeButton(150, 344, 200, 40, 80, 80, 80, NEW_GAME_PLAY, "Begin Game");
 
 	// Creates the array of galInstructions. Intitializes it to nullptr.

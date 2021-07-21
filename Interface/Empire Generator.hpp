@@ -32,6 +32,10 @@ is recursive and can cover all galaxies with a single thread, a single thread ca
 */
 void generateEmpiresUniverse(Galaxy* galaxies, GalaxyInstruction* instrs, int numGalaxies) {
 
+	// TODO DEBUG REMOVE
+	// Places colonies in all systems.
+	for (int i = 0; i < numGalaxies; ++i) instrs[i].empireChance = 1001;
+
 	// Allocates Markets.
 	initMarkets(estimateNumMarkets(galaxies, instrs, numGalaxies));
 
@@ -42,11 +46,11 @@ void generateEmpiresUniverse(Galaxy* galaxies, GalaxyInstruction* instrs, int nu
 	initColonies(estimateNumColonies(galaxies, instrs, numGalaxies));
 
 	// Allocates Governments.
-	initGovernments(estimateNumGovernments(galaxies, instrs, numGalaxies));
+	int estGovernments = estimateNumGovernments(galaxies, instrs, numGalaxies);
+	initGovernments(estGovernments);
 
-	// TODO DEBUG REMOVE
-	// Places colonies in all systems.
-	for (int i = 0; i < numGalaxies; ++i) instrs[i].empireChance = 1001;
+	// Allocates Closures.
+	initClosures(estGovernments);
 
 	// Generates empires in a multi threaded manner.
 	for (int i = 0; i < numThreads - 1 && i < numGalaxies - 1; ++i) threads[demandThread()] = new std::thread(generateEmpiresUniverseThreaded, galaxies, instrs, numGalaxies);
@@ -108,17 +112,18 @@ Government* generateGovernment() {
 
 	// TODO TEMP
 	// Adds a simple list of unit templates to the Government.
-	newGovernment->unitTable = new GroundUnitTemplate[3]();
-	newGovernment->unitTable[1] = {0, 1, BallisticDamage, 1, 0};
-	newGovernment->unitTable[2] = {4, 2, BallisticDamage, 1, 16};
+	newGovernment->unitTable = new GroundUnitTemplate[4]();
+	newGovernment->unitTable[1] = {0, 0, 0, 1, BallisticDamage, 1, LimbMovement, 1, 0};
+	newGovernment->unitTable[2] = {4, 2, 0, 2, BallisticDamage, 1, TrackMovement, 1, 16};
+	newGovernment->unitTable[3] = {2, 2, 0, 2, BallisticDamage, 1, SailMovement, 1, 80};
 	groundUnitTemplateStrength(&newGovernment->unitTable[1]);
 	groundUnitTemplateStrength(&newGovernment->unitTable[2]);
-	*((int*)newGovernment->unitTable) = 2; // Assigns the number of units to two.
+	*((int*)newGovernment->unitTable) = 3; // Assigns the number of units to two.
 
 	// TODO TEMP
-	// Adds a simple list of ship templates to the Government.
-	newGovernment->shipTable = new ShipTemplate[1]();
-	newGovernment->shipTable[0] = {{1, 0, 0, 0}, {0, 0, 0, 0}, 0, 1, 1, 0};
+	// Adds a simple list of space ship templates to the Government.
+	newGovernment->shipTable = new ShipTemplate[1];
+	newGovernment->shipTable[0] = {{1, 0, 0, 0}, {0, 0, 0, 0}, 0, 1, 1, 6, 3, 0};
 
 	// TODO add ethics, parliament, etc.
 
@@ -443,7 +448,13 @@ Estimates the appropriate number of Governments.
 TODO create a real Government estimation system.
 */
 inline int estimateNumGovernments(Galaxy* galaxies, GalaxyInstruction* instrs, int numGalaxies) {
-	return /*numHabitablePlanets * 20*/0;
+	int numGovernments = 0;
+
+	// Sums the estimated number of Governments for each Galaxy.
+	for (int i = 0; i < numGalaxies; ++i) numGovernments += (galaxies[i].numSystems * instrs[i].empireChance) / 1000 + 8;
+
+	// Returns the estimated number of Governments.
+	return numGovernments;
 
 }
 
@@ -454,7 +465,7 @@ Generates an appropriate handful of races for the given empire.
 // TODO more varied productivities.
 // TODO produce child races.
 // TODO place varied number of initial pops.
-// TODO create real race name
+// TODO create real race name.
 */
 void generateRaces(Colony* colony) {
 	RaceTemplate* race = placeRace();

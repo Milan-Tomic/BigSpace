@@ -13,133 +13,184 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\Government">
+      <UniqueIdentifier>{85a5d0ac-e8b3-4bc6-9654-70880b40635d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Data Structures">
+      <UniqueIdentifier>{517d3252-8c55-4950-a2e0-9b84037e2907}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Generators">
+      <UniqueIdentifier>{407768bb-a85f-41a0-ab75-68da958ae215}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Battle">
+      <UniqueIdentifier>{fe08c51c-0086-44ff-8430-99df3cbdf4d6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Interface">
+      <UniqueIdentifier>{cd87937e-5d5b-4145-96d7-60ed3246409d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Interface\Game Screen">
+      <UniqueIdentifier>{b924ff51-8c77-45db-9636-f6fdf90a3a22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Interface\PreGame">
+      <UniqueIdentifier>{b66a873c-9910-481b-8ff3-37335f46b7ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Interface\Generic">
+      <UniqueIdentifier>{f52a7d1a-a64f-44c8-acc9-7209af2d98b4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Colonies and Commerce">
+      <UniqueIdentifier>{4b134618-f1c2-490e-8913-17f33daa8d9e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Save/Load">
+      <UniqueIdentifier>{b4d96bae-5091-490a-a457-8d0a60135b48}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Defs and Utilities">
+      <UniqueIdentifier>{a465ecf5-447d-4a42-8bfc-6882c478ab88}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Galaxy/Universe">
+      <UniqueIdentifier>{c088d953-dec3-4315-acd7-8eef89257750}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Diplomacy">
+      <UniqueIdentifier>{5049bbc8-8f91-46e8-9d45-f9ee3bdfd136}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Events">
+      <UniqueIdentifier>{dcbe2417-9d29-46c2-9c20-9be782d54762}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Interface Components.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Galaxy Tiles.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Opening Screen.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Universe Generator.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Interface Tools.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Save and Load.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="New Game Screen.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="System Generator.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Interface Component Tools.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Planet Generator.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Universe View.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ToolBar View.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="System View.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Report View.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Game Screen.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Planet View.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="View Components.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Planet (Barren) View.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="LinkedList.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Pathfinding.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Multithreading.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="PlanetSide.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Utilities.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Populations.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Gameplay Loop.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Climate Change.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Commerce.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Building Data.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Colonies.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Empire Generator.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Governments.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Defines.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Planet Production.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Government Action.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Ground Armies.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Ground Battles.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Comparison Matrix.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Government</Filter>
     </ClInclude>
     <ClInclude Include="Government.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Government</Filter>
+    </ClInclude>
+    <ClInclude Include="Governments.hpp">
+      <Filter>Header Files\Government</Filter>
+    </ClInclude>
+    <ClInclude Include="Comparison Matrix.hpp">
+      <Filter>Header Files\Data Structures</Filter>
+    </ClInclude>
+    <ClInclude Include="Empire Generator.hpp">
+      <Filter>Header Files\Generators</Filter>
+    </ClInclude>
+    <ClInclude Include="LinkedList.hpp">
+      <Filter>Header Files\Data Structures</Filter>
+    </ClInclude>
+    <ClInclude Include="Universe Generator.hpp">
+      <Filter>Header Files\Generators</Filter>
+    </ClInclude>
+    <ClInclude Include="Planet Generator.hpp">
+      <Filter>Header Files\Generators</Filter>
     </ClInclude>
     <ClInclude Include="Space Combat.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Battle</Filter>
     </ClInclude>
     <ClInclude Include="Space Battles.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Battle</Filter>
     </ClInclude>
-    <ClInclude Include="Galaxy.hpp">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="System Generator.hpp">
+      <Filter>Header Files\Generators</Filter>
+    </ClInclude>
+    <ClInclude Include="Defines.hpp">
+      <Filter>Header Files\Defs and Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="Planet View.hpp">
+      <Filter>Header Files\Interface\Game Screen</Filter>
+    </ClInclude>
+    <ClInclude Include="Report View.hpp">
+      <Filter>Header Files\Interface\Game Screen</Filter>
+    </ClInclude>
+    <ClInclude Include="System View.hpp">
+      <Filter>Header Files\Interface\Game Screen</Filter>
+    </ClInclude>
+    <ClInclude Include="ToolBar View.hpp">
+      <Filter>Header Files\Interface\Game Screen</Filter>
+    </ClInclude>
+    <ClInclude Include="Universe View.hpp">
+      <Filter>Header Files\Interface\Game Screen</Filter>
+    </ClInclude>
+    <ClInclude Include="New Game Screen.hpp">
+      <Filter>Header Files\Interface\PreGame</Filter>
+    </ClInclude>
+    <ClInclude Include="Opening Screen.hpp">
+      <Filter>Header Files\Interface\PreGame</Filter>
+    </ClInclude>
+    <ClInclude Include="Game Screen.hpp">
+      <Filter>Header Files\Interface\Game Screen</Filter>
+    </ClInclude>
+    <ClInclude Include="Ground Armies.hpp">
+      <Filter>Header Files\Battle</Filter>
+    </ClInclude>
+    <ClInclude Include="Ground Battles.hpp">
+      <Filter>Header Files\Battle</Filter>
+    </ClInclude>
+    <ClInclude Include="View Components.hpp">
+      <Filter>Header Files\Interface\Game Screen</Filter>
+    </ClInclude>
+    <ClInclude Include="Utilities.hpp">
+      <Filter>Header Files\Defs and Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="Pathfinding.hpp">
+      <Filter>Header Files\Defs and Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="Multithreading.hpp">
+      <Filter>Header Files\Defs and Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="Interface Component Tools.hpp">
+      <Filter>Header Files\Interface\Generic</Filter>
+    </ClInclude>
+    <ClInclude Include="Interface Components.hpp">
+      <Filter>Header Files\Interface\Generic</Filter>
+    </ClInclude>
+    <ClInclude Include="Interface Tools.hpp">
+      <Filter>Header Files\Interface\Generic</Filter>
+    </ClInclude>
+    <ClInclude Include="Planet (Barren) View.hpp">
+      <Filter>Header Files\Interface\Game Screen</Filter>
+    </ClInclude>
+    <ClInclude Include="Colonies.hpp">
+      <Filter>Header Files\Colonies and Commerce</Filter>
+    </ClInclude>
+    <ClInclude Include="Commerce.hpp">
+      <Filter>Header Files\Colonies and Commerce</Filter>
+    </ClInclude>
+    <ClInclude Include="Building Data.hpp">
+      <Filter>Header Files\Colonies and Commerce</Filter>
+    </ClInclude>
+    <ClInclude Include="Climate Change.hpp">
+      <Filter>Header Files\Colonies and Commerce</Filter>
+    </ClInclude>
+    <ClInclude Include="Planet Production.hpp">
+      <Filter>Header Files\Colonies and Commerce</Filter>
+    </ClInclude>
+    <ClInclude Include="PlanetSide.hpp">
+      <Filter>Header Files\Colonies and Commerce</Filter>
+    </ClInclude>
+    <ClInclude Include="Populations.hpp">
+      <Filter>Header Files\Colonies and Commerce</Filter>
+    </ClInclude>
+    <ClInclude Include="Save and Load.hpp">
+      <Filter>Header Files\Save/Load</Filter>
     </ClInclude>
     <ClInclude Include="Universe.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Galaxy/Universe</Filter>
+    </ClInclude>
+    <ClInclude Include="Galaxy Tiles.hpp">
+      <Filter>Header Files\Galaxy/Universe</Filter>
+    </ClInclude>
+    <ClInclude Include="Galaxy.hpp">
+      <Filter>Header Files\Galaxy/Universe</Filter>
+    </ClInclude>
+    <ClInclude Include="Diplomacy.hpp">
+      <Filter>Header Files\Diplomacy</Filter>
+    </ClInclude>
+    <ClInclude Include="Events.hpp">
+      <Filter>Header Files\Events</Filter>
+    </ClInclude>
+    <ClInclude Include="Event Handling.hpp">
+      <Filter>Header Files\Events</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -147,7 +198,7 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\Data Management\BST.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Data Structures</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

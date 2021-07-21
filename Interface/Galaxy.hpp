@@ -2,7 +2,6 @@
 
 
 // Struct describing an instruction for generating a galaxy.
-// TODO when barrens are added, allow dummySize (search initThreadDummies) to account for barrens
 struct GalaxyInstruction {
 
 	// Galaxy Type. SPIRAL and RING are used for generation,
@@ -51,6 +50,9 @@ struct Galaxy {
 
 	// Area of the Galaxy measured in Tiles.
 	SDL_Rect area;
+
+	// Number of systems in this Galaxy.
+	int numSystems;
 
 	// Number of unowned tiles in this Galaxy.
 	int unowned;

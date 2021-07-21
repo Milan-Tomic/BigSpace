@@ -139,10 +139,10 @@ Places a Market. Generates a new MarketPage if there are none available.
 Resizes marketPages in increments of 256 when the object pool is insufficiently large.
 */
 Market* placeMarket() {
-	static std::mutex placeMarketMutex;
+	static std::shared_mutex placeMarketMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(placeMarketMutex);
+	const std::lock_guard<std::shared_mutex> lock(placeMarketMutex);
 
 	// Attempts to place the Market within one of the current pages.
 	Market* market = nullptr;

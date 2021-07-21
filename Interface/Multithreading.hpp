@@ -16,6 +16,10 @@ bool* currThreads;
 // Threads to clean. 1 encodes attention needed.
 bool* cleanThreads;
 
+// Array containing shared_mutexes for every possible yPos in the Universe.
+// Used to make sure that multithreading Squadrons is effective.
+std::shared_mutex* universeMutexes;
+
 // Stores dummies for use when parsing planets, galaxies, or the universe.
 // Availability is at the -1st index of each dummy.
 // Dummy size is at the -1st index of threadDummies. It is size (in bytes) + 1.
@@ -62,6 +66,12 @@ void releaseLargeDummy(uint_least8_t* dummy);
 inline bool readArrBit(uint_least8_t* arr, int bit);
 inline void writeArrBit(uint_least8_t* arr, int bit, bool write);
 
+// Requests an integer.
+int requestInt();
+
+// Resets the integer counter.
+void resetInt();
+
 // Requests a galaxy.
 int requestGalaxy();
 
@@ -75,6 +85,8 @@ void releaseAllGalaxies();
 A simple 'semaphore' to be used to help the main thread wait for threads in the gameTurn loop.
 It is expected that there will only ever be one waiting thread at any given time, having more than one waiting
 thread will lead to unexpected behaviour.
+
+The waiting threads will be released when post is called crit times.
 */
 class Semaphore {
 public:
@@ -130,6 +142,7 @@ inline unsigned int randU() {
 
 /*
 Special version of rand_s that returns a handful of bits.
+Note that randB can at most return 32 bits.
 */
 inline unsigned int randB(int n) {
 	thread_local static unsigned int input = 0;
@@ -146,6 +159,21 @@ inline unsigned int randB(int n) {
 
 	// Returns the output.
 	return output;
+
+}
+
+/*
+Special version of randB that returns a random number no greater than the inputed
+maximum value (non inclusive).
+*/
+inline unsigned int randM(int max) {
+	int n = 0;
+
+	// Finds the highest bit in the bit string.
+	for (; n < sizeof(max) * 8; ++n) if (!(max >> n)) break;
+
+	// Returns an appropriate random number.
+	return randB(n) % max;
 
 }
 
@@ -207,10 +235,10 @@ Returns the neaxt available thread's index in threads, or -1 if no thread is ava
 This may be accessed by any thread.
 */
 int getThread() {
-	static std::mutex getThreadMutex;
+	static std::shared_mutex getThreadMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(getThreadMutex);
+	const std::lock_guard<std::shared_mutex> lock(getThreadMutex);
 
 	// Finds an available thread.
 	for (int i = 0; i < numThreads; ++i) {
@@ -303,10 +331,10 @@ Requests a dummy. Note that the dummy will not be cleared and must be
 initialized elsewhere.
 */
 uint_least8_t* requestDummy() {
-	static std::mutex dummyMutex;
+	static std::shared_mutex dummyMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(dummyMutex);
+	const std::lock_guard<std::shared_mutex> lock(dummyMutex);
 
 	// Increment to reach the next availability index.
 	int dist = *((int*)threadDummies - 1);
@@ -346,17 +374,19 @@ This should only be accessed in a single threaded manner one time per game sessi
 Size is the total length of a dummy - all calculations for size should be done earlier.
 
 This is called in beginGenerateSystems in Universe Generator.hpp
+
+64 is the number of bytes necessary to create a bitarray of size 512.
 */
 void initLargeDummies(int size) {
 	int numDummies = numThreads;
 	int* sizeDummy;
 
 	// Creates threadLargeDummies. Includes space to store dummy size and availability.
-	threadLargeDummies = new uint_least8_t[numDummies * (size * 32 + sizeof(uint_least8_t)) + sizeof(int)]();
+	threadLargeDummies = new uint_least8_t[numDummies * (size * 64 + sizeof(uint_least8_t)) + sizeof(int)]();
 
 	// The -4th index of threadLargeDummies stores a 4 byte int containing size + 1.
 	sizeDummy = (int*)threadLargeDummies;
-	sizeDummy[0] = size * 32 + sizeof(uint_least8_t);
+	sizeDummy[0] = size * 64 + sizeof(uint_least8_t);
 
 	// TODO DEBUG REMOVE (don't know why that's written, seems to work)
 	threadLargeDummies += sizeof(int);
@@ -368,10 +398,10 @@ Requests a dummy. Note that the dummy will not be cleared and must be
 initialized elsewhere.
 */
 uint_least8_t* requestLargeDummy() {
-	static std::mutex dummyMutex;
+	static std::shared_mutex dummyMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(dummyMutex);
+	const std::lock_guard<std::shared_mutex> lock(dummyMutex);
 
 	// Increment to reach the next availability index.
 	int dist = *((int*)threadLargeDummies - 1);
@@ -421,14 +451,41 @@ inline void writeArrBit(uint_least8_t* arr, int bit, bool write) {
 
 }
 
+// Integer value used for multithreading.
+int threadInteger;
+
+/*
+Requests an integer.
+*/
+inline int requestInt() {
+	static std::shared_mutex requestIntMutex;
+
+	// Forbids concurrent access to this function.
+	const std::lock_guard<std::shared_mutex> lock(requestIntMutex);
+
+	// Returns the integer then increments it.
+	int ret = threadInteger;
+	++threadInteger;
+	return ret;
+
+}
+
+/*
+Resets the integer counter.
+*/
+void resetInt() {
+	threadInteger = 0;
+
+}
+
 /*
 Requests a galaxy. Returns the index of the next available galaxy in galaxies, otherwise -1.
 */
 int requestGalaxy() {
-	static std::mutex requestGalaxyMutex;
+	static std::shared_mutex requestGalaxyMutex;
 
 	// Forbids concurrent access to this function.
-	const std::lock_guard<std::mutex> lock(requestGalaxyMutex);
+	const std::lock_guard<std::shared_mutex> lock(requestGalaxyMutex);
 
 	// Parses through each galaxy and returns the next available one.
 	for (int i = 0; i < numGals; ++i) {

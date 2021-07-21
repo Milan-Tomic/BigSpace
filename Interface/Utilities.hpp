@@ -1,7 +1,13 @@
 #pragma once
 
-// Gets the index for a one-dimensional array.
+// Flattens two-dimensional indices for a one-dimensional array.
 int index(int i, int j, int rowSize);
+
+// Unflattens a one-dimensional index for a two dimensional-array.
+inline void deIndex(int& i, int& j, int f, int rowSize);
+
+// Calculates the distance between two points.
+inline int calcTaxiDistance(int x1, int y1, int x2, int y2);
 
 // Creates and returns an array of canvases.
 int*** createCanvases(int canvasSize, int numCanvases);
@@ -19,10 +25,27 @@ void deallocateCanvases(int*** canvases, int size, int numCanvases);
 void deallocateCanvas(int** canvas, int size);
 
 /*
-Gets the index for a one-dimensional array.
+Flattens two-dimensional indices for a one-dimensional array.
 */
 int inline index(int i, int j, int rowSize) {
 	return i * rowSize +  j;
+
+}
+
+/*
+Unflattens a one-dimensional index for a two dimensional-array.
+*/
+void inline deIndex(int& x, int& y, int i, int rowSize) {
+	x = i / rowSize;
+	y = i % rowSize;
+
+}
+
+/*
+Calculates the distance between two points.
+*/
+inline int calcTaxiDistance(int x1, int y1, int x2, int y2) {
+	return abs(x2 - x1) + abs(y2 - y1);
 
 }
 
@@ -124,5 +147,6 @@ Returns a string representing the inputed bit string.
 */
 void printBitString(long int str, int n) {
 	for (--n; n >= 0; --n) printf("%d", !!(str & (1 << n)));
+	//printf("\n");
 
 }
