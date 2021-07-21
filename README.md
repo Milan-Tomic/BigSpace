@@ -22,6 +22,8 @@ Click Begin Game.
 # Interface Tips
 Press space to pause/unpause the game.
 
+Press 0 to enter/exit high speed mode.
+
 Press Ctrl+Q while in the planet view to return to the system view.
 
 Press Ctrl+Q while in the system view to move to the next inhabited system.
