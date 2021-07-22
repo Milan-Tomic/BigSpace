@@ -40,6 +40,6 @@ Clicking a star will enter that star's system.
 
 Clicking a planet will enter that planet.
 
-Clicking a planet tile will provide some output on the console.
+Right-clicking a planet tile or universe tile will provide some output on the console.
 
 Uninhabited planets will only have an Info panel, Inhabited planets will have an info panel and a resources panel (currently unused).
