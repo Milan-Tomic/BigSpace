@@ -3,7 +3,7 @@
 Space colonization game focused on scale. I work on this project in my spare time.
 
 # Quick Start Guide
-Put the game into Visual Studio and Run it.
+Clone the game into Visual Studio and Run it.
 
 Click New Game.
 
@@ -13,7 +13,8 @@ Use the Add Galaxy buttons to add as many galaxies as you like.
 
 Click Finish.
 
-Click Generate Galaxy (requires at least one galaxy to have been added).
+Click Generate Universe (requires at least one galaxy to have been added).
+  Note that generating excessively large universes may cause your system to crash.
 
 Wait some time (may take a while for large galaxies).
 
